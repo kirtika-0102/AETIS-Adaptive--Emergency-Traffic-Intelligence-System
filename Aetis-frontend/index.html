@@ -2,12 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>aetis-frontend</title>
+
+    <title>AETIS | Safer Roads. Faster Response.</title>
+    <meta
+      name="description"
+      content="AETIS connects people in emergencies with the right help faster, using AI-powered ambulance detection, optimized routing and traffic signal priority."
+    />
+    <meta name="theme-color" content="#0D3B4E" />
+    <meta name="color-scheme" content="light" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AETIS | Safer Roads. Faster Response." />
+    <meta
+      property="og:description"
+      content="AI-powered emergency vehicle detection, routing and traffic signal priority."
+    />
+
+    <!-- Preconnect so the fonts imported in globals.css load faster -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <style>
+      /* Prevents a white flash before the CSS bundle loads */
+      html,
+      body {
+        background-color: #faf6f0;
+        margin: 0;
+      }
+    </style>
   </head>
+
   <body>
+    <noscript>
+      AETIS requires JavaScript to run. Please enable JavaScript in your
+      browser.
+    </noscript>
+
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
