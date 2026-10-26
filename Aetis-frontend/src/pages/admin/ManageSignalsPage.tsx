@@ -350,8 +350,8 @@ function ManageSignalsPage() {
       <section className="card p-5" aria-label="Priority buffer">
         <h2 className="text-lg">Priority buffer</h2>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Signals open this many seconds after the estimated arrival time, so the
-          road is clear even if the vehicle runs late. Applies to all signals.
+          Signals open this many seconds before the estimated arrival time, so the
+queue ahead has cleared by the time the vehicle gets there. Applies to all signals.
         </p>
 
         <form

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import Loader from "../components/common/Loader";
 import { AnimatePresence, motion } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
 
@@ -141,7 +142,9 @@ function DashboardLayout() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
               >
-                <Outlet />
+                   <Suspense fallback={<Loader />}>
+                    <Outlet />
+                  </Suspense>
               </motion.div>
             </AnimatePresence>
           </div>

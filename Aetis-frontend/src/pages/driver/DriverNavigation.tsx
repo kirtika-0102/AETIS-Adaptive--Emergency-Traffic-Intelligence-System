@@ -83,7 +83,7 @@ function DriverNavigation() {
           lng: p.lng,
           speedKmh: p.speedKmh ?? 0,
           heading: p.heading ?? null,
-          timestamp: Date.now(),
+          timestamp: p.timestamp,
         })
         .catch(() => {
           /* a dropped fix is fine; the next one follows in seconds */
