@@ -152,7 +152,7 @@ function CompleteEmergencyPage() {
       <section className="card p-5" aria-label="Emergency summary">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
+            <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--text-muted)]">
               {emergency.id}
             </p>
             <h2 className="mt-1 text-lg">

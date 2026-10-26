@@ -97,7 +97,7 @@ function EmergencyHistoryPage() {
       key: "id",
       header: "ID",
       render: (e) => (
-        <span className="font-[var(--font-mono)] text-xs">{e.id}</span>
+        <span className="font-[family-name:var(--font-mono)] text-xs">{e.id}</span>
       ),
     },
     { key: "type", header: "Type", render: (e) => EMERGENCY_TYPE_LABELS[e.type] },

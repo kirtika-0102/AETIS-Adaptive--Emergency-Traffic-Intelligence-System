@@ -231,7 +231,7 @@ function ManageCamerasPage() {
       render: (c) => (
         <div>
           <p className="font-semibold">{c.name}</p>
-          <p className="font-[var(--font-mono)] text-xs text-[var(--text-secondary)]">
+          <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--text-secondary)]">
             {c.id}
           </p>
         </div>
@@ -327,7 +327,7 @@ function ManageCamerasPage() {
         <button
           type="button"
           onClick={openRegister}
-          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
+          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[shadow:var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
         >
           <Plus size={18} aria-hidden />
           Connect camera

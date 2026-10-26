@@ -178,7 +178,7 @@ function Hero() {
           {FACTS.map((f) => (
             <div key={f.label}>
               <dt className="sr-only">{f.label}</dt>
-              <dd className="font-[var(--font-display)] text-lg font-extrabold text-[var(--color-clay-500)] sm:text-2xl">
+              <dd className="font-[family-name:var(--font-display)] text-lg font-extrabold text-[var(--color-clay-500)] sm:text-2xl">
                 {f.value}
               </dd>
               <p aria-hidden className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -209,11 +209,11 @@ function Hero() {
           className="absolute -bottom-4 -right-4 h-32 w-32 rounded-full bg-[var(--color-olive-500)] opacity-80"
         />
 
-        <div className="relative aspect-[4/3.4] overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--border-subtle)] shadow-[var(--shadow-xl)]">
+        <div className="relative aspect-[4/3.4] overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--border-subtle)] shadow-[shadow:var(--shadow-xl)]">
           <RoadScene />
 
           {/* Detection callout */}
-          <div className="absolute left-3 top-3 flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border-inverse)] bg-[rgba(7,35,48,0.92)] px-3.5 py-3 text-[var(--text-inverse)] shadow-[var(--shadow-lg)] sm:left-5 sm:top-5">
+          <div className="absolute left-3 top-3 flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border-inverse)] bg-[rgba(7,35,48,0.92)] px-3.5 py-3 text-[var(--text-inverse)] shadow-[shadow:var(--shadow-lg)] sm:left-5 sm:top-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-clay-500)]">
               <Siren size={20} aria-hidden />
             </span>
@@ -230,7 +230,7 @@ function Hero() {
           {/* Status list */}
           <ul
             aria-label="Response progress"
-            className="absolute bottom-5 right-5 hidden w-52 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-inverse)] bg-[rgba(7,35,48,0.92)] text-[var(--text-inverse)] shadow-[var(--shadow-lg)] sm:block"
+            className="absolute bottom-5 right-5 hidden w-52 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-inverse)] bg-[rgba(7,35,48,0.92)] text-[var(--text-inverse)] shadow-[shadow:var(--shadow-lg)] sm:block"
           >
             {STATUS_STEPS.map(({ icon: Icon, label, tone }) => (
               <li

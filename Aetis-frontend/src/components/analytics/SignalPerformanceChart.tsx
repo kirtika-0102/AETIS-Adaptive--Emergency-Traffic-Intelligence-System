@@ -44,7 +44,7 @@ function PerformanceTooltip({ active, payload, label }: TooltipProps) {
   const pct = total > 0 ? Math.round((row.onTime / total) * 100) : null;
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[var(--shadow-md)]">
+    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[shadow:var(--shadow-md)]">
       <p className="text-xs text-[var(--text-muted)]">{label}</p>
       <p className="mt-1 text-sm text-[var(--text-primary)]">
         <span className="font-semibold">{row.onTime}</span> on time
@@ -100,7 +100,7 @@ function SignalPerformanceChart({
     <div className={className}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <p className="text-sm text-[var(--text-secondary)]">
-          <span className="font-[var(--font-display)] text-xl font-extrabold text-[var(--text-primary)]">
+          <span className="font-[family-name:var(--font-display)] text-xl font-extrabold text-[var(--text-primary)]">
             {pct}%
           </span>{" "}
           opened on time ({totals.onTime} of {totals.all})

@@ -76,7 +76,7 @@ function Topbar({ onMenuClick }: TopbarProps) {
         </button>
 
         {/* Brand is in the sidebar on desktop, so only show it below lg */}
-        <span className="font-[var(--font-display)] text-xl font-extrabold tracking-tight text-[var(--text-primary)] lg:hidden">
+        <span className="font-[family-name:var(--font-display)] text-xl font-extrabold tracking-tight text-[var(--text-primary)] lg:hidden">
           AETIS
         </span>
 
@@ -134,7 +134,7 @@ function Topbar({ onMenuClick }: TopbarProps) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-[calc(100%+8px)] z-[var(--z-dropdown)] w-64 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]"
+                  className="absolute right-0 top-[calc(100%+8px)] z-[var(--z-dropdown)] w-64 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[shadow:var(--shadow-lg)]"
                 >
                   <div className="border-b border-[var(--border-subtle)] px-4 py-3">
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)]">

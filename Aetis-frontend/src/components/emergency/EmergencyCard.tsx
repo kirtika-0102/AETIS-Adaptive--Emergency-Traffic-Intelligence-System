@@ -113,7 +113,7 @@ function EmergencyCard({ emergency, to, className }: EmergencyCardProps) {
         </p>
 
         <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[var(--text-muted)]">
-          <span className="font-[var(--font-mono)]">{emergency.id}</span>
+          <span className="font-[family-name:var(--font-mono)]">{emergency.id}</span>
           <span>{emergency.callerName}</span>
           <time
             dateTime={emergency.createdAt}
@@ -147,7 +147,7 @@ function EmergencyCard({ emergency, to, className }: EmergencyCardProps) {
         SEVERITY_LABELS[emergency.severity] ?? emergency.severity
       } severity, ${emergency.location.address}. ${cue}`}
       className={cx(
-        "card block p-4 transition-shadow hover:shadow-[var(--shadow-md)]",
+        "card block p-4 transition-shadow hover:shadow-[shadow:var(--shadow-md)]",
         className
       )}
     >

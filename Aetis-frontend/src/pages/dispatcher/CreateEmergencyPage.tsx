@@ -93,7 +93,7 @@ function CreateEmergencyPage() {
                   <span className="text-sm text-[var(--text-inverse-muted)]">
                     {h.label}
                   </span>
-                  <span className="font-[var(--font-mono)] text-lg font-semibold text-[var(--color-sand-200)]">
+                  <span className="font-[family-name:var(--font-mono)] text-lg font-semibold text-[var(--color-sand-200)]">
                     {h.number}
                   </span>
                 </li>

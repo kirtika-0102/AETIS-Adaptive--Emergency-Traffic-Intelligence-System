@@ -140,7 +140,7 @@ function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-x-3 top-[calc(100%+8px)] z-[var(--z-dropdown)] flex max-h-[min(70vh,520px)] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)] sm:inset-x-auto sm:right-0 sm:w-96"
+            className="absolute inset-x-3 top-[calc(100%+8px)] z-[var(--z-dropdown)] flex max-h-[min(70vh,520px)] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[shadow:var(--shadow-lg)] sm:inset-x-auto sm:right-0 sm:w-96"
           >
             <NotificationPanel
               notifications={notifications}

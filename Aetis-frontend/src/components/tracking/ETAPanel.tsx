@@ -85,7 +85,7 @@ function ETAPanel({ ev, className }: ETAPanelProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-[var(--text-muted)]">Estimated arrival</p>
-          <p className="mt-1 font-[var(--font-display)] text-4xl font-extrabold leading-none text-[var(--text-primary)]">
+          <p className="mt-1 font-[family-name:var(--font-display)] text-4xl font-extrabold leading-none text-[var(--text-primary)]">
             {etaText}
           </p>
           {arrivalClock && (

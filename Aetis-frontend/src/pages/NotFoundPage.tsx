@@ -57,7 +57,7 @@ function NotFoundPage() {
           className="inline-flex flex-col leading-none"
           aria-label="AETIS home"
         >
-          <span className="font-[var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+          <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
             AETIS
           </span>
           <span className="mt-1 text-xs text-[var(--text-muted)]">
@@ -69,7 +69,7 @@ function NotFoundPage() {
           <Compass size={32} aria-hidden />
         </div>
 
-        <p className="mt-6 font-[var(--font-display)] text-6xl font-extrabold leading-none text-gradient-brand">
+        <p className="mt-6 font-[family-name:var(--font-display)] text-6xl font-extrabold leading-none text-gradient-brand">
           404
         </p>
 
@@ -79,7 +79,7 @@ function NotFoundPage() {
 
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           We could not find{" "}
-          <span className="break-all font-[var(--font-mono)] text-xs text-[var(--text-primary)]">
+          <span className="break-all font-[family-name:var(--font-mono)] text-xs text-[var(--text-primary)]">
             {pathname}
           </span>
           . It may have moved, or the address may be mistyped.

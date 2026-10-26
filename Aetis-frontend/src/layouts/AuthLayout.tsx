@@ -38,7 +38,7 @@ function AuthLayout() {
           className="relative z-10 inline-flex flex-col leading-none"
           aria-label="AETIS home"
         >
-          <span className="font-[var(--font-display)] text-3xl font-extrabold tracking-tight">
+          <span className="font-[family-name:var(--font-display)] text-3xl font-extrabold tracking-tight">
             AETIS
           </span>
           <span className="mt-1 text-xs text-[var(--text-inverse-muted)]">
@@ -52,7 +52,7 @@ function AuthLayout() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10 max-w-md"
         >
-          <h1 className="font-[var(--font-display)] text-4xl font-extrabold leading-tight text-[var(--text-inverse)]">
+          <h1 className="font-[family-name:var(--font-display)] text-4xl font-extrabold leading-tight text-[var(--text-inverse)]">
             Connecting the needy to the right help,{" "}
             <span className="text-[var(--color-clay-300)]">faster.</span>
           </h1>
@@ -89,7 +89,7 @@ function AuthLayout() {
           className="mb-8 inline-flex flex-col leading-none lg:hidden"
           aria-label="AETIS home"
         >
-          <span className="font-[var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+          <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
             AETIS
           </span>
           <span className="mt-1 text-xs text-[var(--text-muted)]">

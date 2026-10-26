@@ -74,7 +74,7 @@ function VehicleCard({
             <Clock size={12} aria-hidden />
             ETA
           </p>
-          <p className="font-[var(--font-display)] text-lg font-extrabold leading-tight text-[var(--text-primary)]">
+          <p className="font-[family-name:var(--font-display)] text-lg font-extrabold leading-tight text-[var(--text-primary)]">
             {hasEta ? formatDuration(vehicle.etaSeconds) : "-"}
           </p>
         </div>
@@ -110,7 +110,7 @@ function VehicleCard({
         "block w-full rounded-[var(--radius-xl)] border p-4 text-left transition-colors",
         selected
           ? "border-[var(--action-primary)] bg-[var(--color-teal-50)]"
-          : "border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)] hover:bg-[var(--bg-surface-muted)]",
+          : "border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[shadow:var(--shadow-sm)] hover:bg-[var(--bg-surface-muted)]",
         "disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-[var(--bg-surface)]",
         className
       )}

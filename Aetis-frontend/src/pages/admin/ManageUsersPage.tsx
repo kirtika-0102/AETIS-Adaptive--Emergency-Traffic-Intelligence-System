@@ -253,7 +253,7 @@ function ManageUsersPage() {
       header: "Employee ID",
       render: (u) =>
         u.employeeId ? (
-          <span className="font-[var(--font-mono)] text-xs">{u.employeeId}</span>
+          <span className="font-[family-name:var(--font-mono)] text-xs">{u.employeeId}</span>
         ) : (
           "-"
         ),
@@ -333,7 +333,7 @@ function ManageUsersPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
+          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[shadow:var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
         >
           <Plus size={18} aria-hidden />
           Add user

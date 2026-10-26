@@ -124,7 +124,7 @@ function VehicleAssignModal({
 
             <div>
               <dt className="text-[var(--text-muted)]">Reference</dt>
-              <dd className="font-[var(--font-mono)] text-xs">{emergency.id}</dd>
+              <dd className="font-[family-name:var(--font-mono)] text-xs">{emergency.id}</dd>
             </div>
 
             <div className="sm:col-span-2">

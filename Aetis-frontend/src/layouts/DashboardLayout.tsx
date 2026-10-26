@@ -1,6 +1,5 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Loader from "../components/common/Loader";
-import { AnimatePresence, motion } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
 
 import Sidebar from "../components/layout/Sidebar";
@@ -95,35 +94,23 @@ function DashboardLayout() {
       </aside>
 
       {/* ---------- Mobile drawer ---------- */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={closeMobile}
-              aria-hidden
-              className="fixed inset-0 z-[var(--z-modal-backdrop)] bg-[var(--color-teal-900)]/60 backdrop-blur-sm lg:hidden"
-            />
-            <motion.aside
-              key="drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Navigation menu"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "tween", duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-y-0 left-0 z-[var(--z-modal)] w-[var(--sidebar-width)] max-w-[85vw] bg-[var(--bg-inverse)] shadow-[var(--shadow-xl)] lg:hidden"
-            >
-              <Sidebar collapsed={false} onNavigate={closeMobile} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {mobileOpen && (
+        <>
+          <div
+            onClick={closeMobile}
+            aria-hidden
+            className="fixed inset-0 z-[var(--z-modal-backdrop)] bg-[var(--color-teal-900)]/60 backdrop-blur-sm lg:hidden"
+          />
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            className="fixed inset-y-0 left-0 z-[var(--z-modal)] w-[var(--sidebar-width)] max-w-[85vw] bg-[var(--bg-inverse)] shadow-[var(--shadow-xl)] lg:hidden"
+          >
+            <Sidebar collapsed={false} onNavigate={closeMobile} />
+          </aside>
+        </>
+      )}
 
       {/* ---------- Main column ---------- */}
       <div className="flex min-h-screen flex-col transition-[padding] duration-[var(--duration-base)] ease-[var(--ease-standard)] lg:pl-[var(--current-sidebar-width)]">
@@ -134,19 +121,11 @@ function DashboardLayout() {
           className="flex-1 px-4 py-6 sm:px-6 lg:px-8"
         >
           <div className="mx-auto w-full max-w-[1400px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-              >
-                   <Suspense fallback={<Loader />}>
-                    <Outlet />
-                  </Suspense>
-              </motion.div>
-            </AnimatePresence>
+            <div key={pathname}>
+              <Suspense fallback={<Loader />}>
+                <Outlet />
+              </Suspense>
+            </div>
           </div>
         </main>
       </div>

@@ -42,7 +42,7 @@ function StatCard({ label, value, icon, tone, hint, className }: StatCardProps) 
 
       <dl className="min-w-0">
         <dt className="text-sm text-[var(--text-secondary)]">{label}</dt>
-        <dd className="mt-0.5 break-words font-[var(--font-display)] text-2xl font-extrabold leading-tight text-[var(--text-primary)]">
+        <dd className="mt-0.5 break-words font-[family-name:var(--font-display)] text-2xl font-extrabold leading-tight text-[var(--text-primary)]">
           {value}
         </dd>
         {hint && (
