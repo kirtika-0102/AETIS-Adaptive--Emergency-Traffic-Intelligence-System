@@ -147,7 +147,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, x: 24 }}
                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className={`pointer-events-auto flex items-start gap-3 rounded-[var(--radius-lg)] border border-l-4 border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-lg)] ${ACCENT_CLASSES[t.tone]}`}
+                    className={`pointer-events-auto flex items-start gap-3 rounded-[var(--radius-lg)] border border-l-4 border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[shadow:var(--shadow-lg)] ${ACCENT_CLASSES[t.tone]}`}
                   >
                     <Icon
                       size={20}

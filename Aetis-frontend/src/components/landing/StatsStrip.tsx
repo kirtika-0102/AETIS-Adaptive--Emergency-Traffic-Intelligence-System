@@ -98,7 +98,7 @@ function StatsStrip() {
             className="px-6 py-7 text-center"
           >
             <dd
-              className={`font-[var(--font-display)] text-4xl font-extrabold ${s.tone}`}
+              className={`font-[family-name:var(--font-display)] text-4xl font-extrabold ${s.tone}`}
             >
               {typeof s.value === "number" ? (
                 <CountUp to={s.value} prefix={s.prefix} suffix={s.suffix} />

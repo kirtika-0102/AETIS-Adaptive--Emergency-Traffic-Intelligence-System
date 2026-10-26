@@ -118,7 +118,7 @@ function IncomingEmergencyDetail() {
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
+            <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--text-muted)]">
               {emergency.id}
             </p>
             <h1 className="text-2xl text-[var(--text-primary)] sm:text-3xl">
@@ -159,7 +159,7 @@ function IncomingEmergencyDetail() {
             <p className="text-sm text-[var(--text-inverse-muted)]">
               Arriving with {alert.vehicleLabel}
             </p>
-            <p className="font-[var(--font-display)] text-2xl font-extrabold text-[var(--text-inverse)]">
+            <p className="font-[family-name:var(--font-display)] text-2xl font-extrabold text-[var(--text-inverse)]">
               {formatDuration(eta)}
             </p>
           </div>

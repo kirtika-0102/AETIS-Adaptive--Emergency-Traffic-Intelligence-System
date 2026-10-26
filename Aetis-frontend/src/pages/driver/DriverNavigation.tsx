@@ -162,7 +162,7 @@ function DriverNavigation() {
       {/* ---------- Header ---------- */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
+          <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--text-muted)]">
             {emergency.id}
           </p>
           <h1 className="text-xl text-[var(--text-primary)] sm:text-2xl">
@@ -250,7 +250,7 @@ function DriverNavigation() {
               type="button"
               onClick={() => updateStatus("en_route")}
               disabled={isUpdating}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--action-accent)] px-6 py-4 text-base font-semibold text-white shadow-[var(--shadow-lg)] transition-colors hover:bg-[var(--action-accent-hover)] disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--action-accent)] px-6 py-4 text-base font-semibold text-white shadow-[shadow:var(--shadow-lg)] transition-colors hover:bg-[var(--action-accent-hover)] disabled:opacity-60"
             >
               <Play size={18} aria-hidden />
               {isUpdating ? "Starting..." : "Start trip"}
@@ -260,7 +260,7 @@ function DriverNavigation() {
               type="button"
               onClick={() => updateStatus("arrived")}
               disabled={isUpdating}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--action-secondary)] px-6 py-4 text-base font-semibold text-white shadow-[var(--shadow-lg)] transition-colors hover:bg-[var(--action-secondary-hover)] disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-[var(--action-secondary)] px-6 py-4 text-base font-semibold text-white shadow-[shadow:var(--shadow-lg)] transition-colors hover:bg-[var(--action-secondary-hover)] disabled:opacity-60"
             >
               <CheckCircle2 size={18} aria-hidden />
               {isUpdating ? "Updating..." : "I have arrived"}

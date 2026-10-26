@@ -44,7 +44,7 @@ function UsageTooltip({ active, payload }: TooltipProps) {
   if (!active || !row) return null;
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[var(--shadow-md)]">
+    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[shadow:var(--shadow-md)]">
       <p className="text-xs text-[var(--text-muted)]">{row.label}</p>
       <p className="text-sm font-semibold text-[var(--text-primary)]">
         {row.dispatches} {row.dispatches === 1 ? "dispatch" : "dispatches"}
@@ -89,7 +89,7 @@ function VehicleUsageChart({ data, maxItems = 10, className }: VehicleUsageChart
   return (
     <div className={className}>
       <p className="mb-3 text-sm text-[var(--text-secondary)]">
-        <span className="font-[var(--font-display)] text-xl font-extrabold text-[var(--text-primary)]">
+        <span className="font-[family-name:var(--font-display)] text-xl font-extrabold text-[var(--text-primary)]">
           {totalDispatches}
         </span>{" "}
         {totalDispatches === 1 ? "dispatch" : "dispatches"} across{" "}

@@ -233,7 +233,7 @@ function AdminDashboard() {
                   {entry.target && (
                     <>
                       {" "}
-                      <span className="font-[var(--font-mono)] text-xs text-[var(--text-secondary)]">
+                      <span className="font-[family-name:var(--font-mono)] text-xs text-[var(--text-secondary)]">
                         {entry.target}
                       </span>
                     </>
@@ -254,7 +254,7 @@ function AdminDashboard() {
           <Link
             key={to}
             to={to}
-            className="card group p-5 transition-shadow hover:shadow-[var(--shadow-md)]"
+            className="card group p-5 transition-shadow hover:shadow-[shadow:var(--shadow-md)]"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-teal-50)] text-[var(--color-teal-600)] transition-colors group-hover:bg-[var(--color-teal-600)] group-hover:text-white">
               <Icon size={20} aria-hidden />

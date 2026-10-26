@@ -81,7 +81,7 @@ function DispatcherDashboard() {
 
         <Link
           to={ROUTES.DISPATCHER.CREATE_EMERGENCY}
-          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
+          className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--action-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[shadow:var(--shadow-sm)] transition-colors hover:bg-[var(--action-accent-hover)]"
         >
           <Plus size={18} aria-hidden />
           New emergency

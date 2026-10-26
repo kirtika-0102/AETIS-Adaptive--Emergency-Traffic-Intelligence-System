@@ -108,7 +108,7 @@ function EmergencyTypeSelector({
               <span
                 className={cx(
                   "flex h-full items-center gap-3 rounded-[var(--radius-md)] border px-3.5 py-3 transition-colors",
-                  "peer-focus-visible:shadow-[var(--shadow-focus)]",
+                  "peer-focus-visible:shadow-[shadow:var(--shadow-focus)]",
                   selected
                     ? "border-[var(--action-primary)] bg-[var(--color-teal-50)]"
                     : error
@@ -131,7 +131,7 @@ function EmergencyTypeSelector({
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
                       {label}
                     </span>
-                    <span className="font-[var(--font-mono)] text-sm font-semibold text-[var(--color-clay-500)]">
+                    <span className="font-[family-name:var(--font-mono)] text-sm font-semibold text-[var(--color-clay-500)]">
                       {number}
                     </span>
                   </span>

@@ -214,7 +214,7 @@ function SeverityPicker({ id, value, onChange, error }: SeverityPickerProps) {
               <span
                 className={cx(
                   "flex h-full flex-col gap-1 rounded-[var(--radius-md)] border px-3 py-3 transition-colors",
-                  "peer-focus-visible:shadow-[var(--shadow-focus)]",
+                  "peer-focus-visible:shadow-[shadow:var(--shadow-focus)]",
                   selected
                     ? "border-[var(--action-primary)] bg-[var(--color-teal-50)]"
                     : error

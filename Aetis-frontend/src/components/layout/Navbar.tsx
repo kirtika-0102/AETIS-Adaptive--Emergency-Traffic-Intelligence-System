@@ -101,7 +101,7 @@ function Navbar() {
       className={cx(
         "sticky top-0 z-[var(--z-sticky)] w-full transition-[background-color,box-shadow,border-color] duration-[var(--duration-base)]",
         scrolled
-          ? "border-b border-[var(--border-subtle)] bg-[rgba(250,246,240,0.88)] shadow-[var(--shadow-xs)] backdrop-blur-md"
+          ? "border-b border-[var(--border-subtle)] bg-[rgba(250,246,240,0.88)] shadow-[shadow:var(--shadow-xs)] backdrop-blur-md"
           : "border-b border-transparent bg-[var(--bg-app)]"
       )}
     >
@@ -113,7 +113,7 @@ function Navbar() {
           className="inline-flex flex-col leading-none"
           aria-label="AETIS home"
         >
-          <span className="font-[var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+          <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
             AETIS
           </span>
           <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] sm:block">

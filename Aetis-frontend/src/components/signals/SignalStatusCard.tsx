@@ -121,7 +121,7 @@ function SignalStatusCard({
           </div>
 
           {!compact && (
-            <p className="mt-0.5 font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
+            <p className="mt-0.5 font-[family-name:var(--font-mono)] text-xs text-[var(--text-muted)]">
               {signal.id}
             </p>
           )}

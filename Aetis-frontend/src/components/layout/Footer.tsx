@@ -27,7 +27,7 @@ function Footer() {
               className="inline-flex flex-col leading-none"
               aria-label="AETIS home"
             >
-              <span className="font-[var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+              <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
                 AETIS
               </span>
               <span className="mt-1 text-xs text-[var(--text-muted)]">
@@ -73,7 +73,7 @@ function Footer() {
             In an emergency, call{" "}
             {HELPLINES.map((h, i) => (
               <span key={h.number}>
-                <span className="font-[var(--font-mono)] font-semibold text-[var(--text-primary)]">
+                <span className="font-[family-name:var(--font-mono)] font-semibold text-[var(--text-primary)]">
                   {h.number}
                 </span>{" "}
                 ({h.label})

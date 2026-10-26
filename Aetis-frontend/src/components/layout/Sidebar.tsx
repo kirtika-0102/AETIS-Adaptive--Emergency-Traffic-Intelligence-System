@@ -159,7 +159,7 @@ function Sidebar({ collapsed, onToggleCollapse, onNavigate }: SidebarProps) {
           aria-label="AETIS dashboard home"
           className="inline-flex flex-col leading-none"
         >
-          <span className="font-[var(--font-display)] text-2xl font-extrabold tracking-tight">
+          <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight">
             {collapsed ? "A" : "AETIS"}
           </span>
           {!collapsed && (

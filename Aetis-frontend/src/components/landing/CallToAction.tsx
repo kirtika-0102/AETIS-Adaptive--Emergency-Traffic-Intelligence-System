@@ -57,7 +57,7 @@ function CallToAction() {
 
           <Link
             to={ctaTo}
-            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-[var(--radius-md)] bg-[var(--action-accent)] px-7 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-colors hover:bg-[var(--action-accent-hover)] md:self-auto"
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-[var(--radius-md)] bg-[var(--action-accent)] px-7 py-3.5 text-sm font-semibold text-white shadow-[shadow:var(--shadow-md)] transition-colors hover:bg-[var(--action-accent-hover)] md:self-auto"
           >
             {ctaLabel}
             <CtaIcon size={16} aria-hidden />

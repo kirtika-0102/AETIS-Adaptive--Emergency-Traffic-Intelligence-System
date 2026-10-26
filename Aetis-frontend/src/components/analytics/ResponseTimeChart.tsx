@@ -42,7 +42,7 @@ function ResponseTooltip({ active, payload, label }: TooltipProps) {
   if (!active || !row) return null;
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[var(--shadow-md)]">
+    <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-[shadow:var(--shadow-md)]">
       <p className="text-xs text-[var(--text-muted)]">{label}</p>
       <p className="text-sm font-semibold text-[var(--text-primary)]">
         {row.seconds === null ? "No data" : formatDuration(row.seconds)}

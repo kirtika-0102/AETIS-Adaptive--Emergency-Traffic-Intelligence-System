@@ -74,7 +74,7 @@ function RoleSelector({ value, onChange, disabled = false }: RoleSelectorProps) 
               <span
                 className={cx(
                   "flex h-full flex-col items-start gap-1.5 rounded-[var(--radius-md)] border px-3 py-3 transition-colors",
-                  "peer-focus-visible:shadow-[var(--shadow-focus)]",
+                  "peer-focus-visible:shadow-[shadow:var(--shadow-focus)]",
                   selected
                     ? "border-[var(--action-primary)] bg-[var(--color-teal-50)]"
                     : "border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-muted)]"

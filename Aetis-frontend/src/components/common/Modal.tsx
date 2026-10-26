@@ -129,7 +129,7 @@ function Modal({
           <div
             aria-hidden
             onClick={() => onCloseRef.current()}
-            className="absolute inset-0 bg-[var(--color-teal-900)]/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[rgba(4,24,34,0.6)] backdrop-blur-sm"
           />
 
           <motion.div
@@ -143,7 +143,7 @@ function Modal({
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className={cx(
-              "relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[var(--shadow-xl)] focus:outline-none sm:max-h-[88vh]",
+              "relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[shadow:var(--shadow-xl)] focus:outline-none sm:max-h-[88vh]",
               "rounded-t-[var(--radius-2xl)] sm:rounded-[var(--radius-xl)]",
               SIZE_CLASSES[size]
             )}

@@ -148,7 +148,7 @@ function IncomingAlertCard({
                 <span aria-hidden>·</span>
                 {VEHICLE_TYPE_LABELS[alert.vehicleType] ?? alert.vehicleType}
               </span>
-              <span className="font-[var(--font-mono)]">{emergency.id}</span>
+              <span className="font-[family-name:var(--font-mono)]">{emergency.id}</span>
               <time
                 dateTime={alert.receivedAt}
                 title={formatDateTime(alert.receivedAt)}
@@ -164,7 +164,7 @@ function IncomingAlertCard({
                 <Clock size={12} aria-hidden />
                 ETA
               </span>
-              <span className="block font-[var(--font-display)] text-xl font-extrabold leading-tight">
+              <span className="block font-[family-name:var(--font-display)] text-xl font-extrabold leading-tight">
                 {etaText}
               </span>
             </span>

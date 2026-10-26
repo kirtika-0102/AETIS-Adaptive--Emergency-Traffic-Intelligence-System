@@ -126,7 +126,7 @@ function ActiveEVQueue({
               </span>
 
               <span className="shrink-0 text-right">
-                <span className="block font-[var(--font-display)] text-base font-extrabold leading-tight">
+                <span className="block font-[family-name:var(--font-display)] text-base font-extrabold leading-tight">
                   {Number.isFinite(ev.etaSeconds)
                     ? ev.etaSeconds <= 0
                       ? "Arriving"

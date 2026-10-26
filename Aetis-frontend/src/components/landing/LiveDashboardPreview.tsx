@@ -150,7 +150,7 @@ function LiveDashboardPreview() {
             <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {TILES.map((t) => (
                 <div key={t.label} className={`rounded-[var(--radius-md)] px-3 py-2.5 ${t.tone}`}>
-                  <p className="font-[var(--font-display)] text-xl font-extrabold leading-none">
+                  <p className="font-[family-name:var(--font-display)] text-xl font-extrabold leading-none">
                     {t.value}
                   </p>
                   <p className="mt-1 text-[11px] opacity-90">{t.label}</p>
