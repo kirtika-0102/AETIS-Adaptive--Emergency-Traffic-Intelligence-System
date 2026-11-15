@@ -4,11 +4,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.emergency import Emergency
 from app.models.signal import SignalPhase, TrafficSignal
 from app.schemas.signal import (
+    CorridorEvaluationRequest,
+    CorridorEvaluationResponse,
     SignalCreate,
     SignalOverrideRequest,
     SignalResponse,
+)
+from app.services.preemption_service import (
+    calculate_queue_dissipation,
+    trigger_green_wave,
+)
+from app.services.routing_service import (
+    get_signals_along_corridor,
+    haversine_distance,
 )
 
 router = APIRouter(prefix="/api/v1/signals", tags=["Traffic Signals"])
@@ -21,6 +32,123 @@ def get_all_signals(db: Session = Depends(get_db)):
     """
     signals = db.query(TrafficSignal).all()
     return signals
+
+
+@router.post(
+    "/evaluate-corridor",
+    response_model=CorridorEvaluationResponse,
+    summary="Evaluate corridor intersections and trigger queue-clearing preemption",
+)
+async def evaluate_corridor(
+    request: CorridorEvaluationRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Evaluates traffic signals along the approaching vehicle's route corridor.
+    Calculates queue dissipation timing and triggers green wave preemption
+    on downstream signals when arrival ETA drops within the clearance window.
+    """
+    # 1. Resolve destination coordinates
+    dest_lat = request.destination_latitude
+    dest_lng = request.destination_longitude
+
+    if dest_lat is None or dest_lng is None:
+        if request.emergency_id:
+            emergency = db.query(Emergency).filter(Emergency.id == request.emergency_id).first()
+            if emergency and emergency.destination_lat is not None and emergency.destination_lng is not None:
+                dest_lat = emergency.destination_lat
+                dest_lng = emergency.destination_lng
+        else:
+            emergency = (
+                db.query(Emergency)
+                .filter(
+                    Emergency.assigned_vehicle_id == request.vehicle_id,
+                    Emergency.status.in_(["active", "en_route", "dispatched"]),
+                )
+                .first()
+            )
+            if emergency and emergency.destination_lat is not None and emergency.destination_lng is not None:
+                dest_lat = emergency.destination_lat
+                dest_lng = emergency.destination_lng
+
+    # 2. Query corridor signals
+    if dest_lat is not None and dest_lng is not None:
+        corridor_signals = get_signals_along_corridor(
+            db=db,
+            origin_lat=request.current_latitude,
+            origin_lng=request.current_longitude,
+            dest_lat=dest_lat,
+            dest_lng=dest_lng,
+            corridor_width_meters=request.corridor_width_meters,
+        )
+    else:
+        # Fallback: all signals sorted by proximity
+        all_signals = db.query(TrafficSignal).all()
+        corridor_signals = sorted(
+            all_signals,
+            key=lambda s: haversine_distance(request.current_latitude, request.current_longitude, s.latitude, s.longitude),
+        )
+
+    speed_mps = request.speed_kmh * (1000.0 / 3600.0)
+
+    # 3. Evaluate each signal in proximity order
+    details = []
+    preemption_triggered = False
+    preempted_signal_id = None
+    next_signal_id = None
+    dist_to_next = None
+    next_eta = None
+    clear_time = None
+    threshold = None
+
+    for signal in corridor_signals:
+        dist = haversine_distance(request.current_latitude, request.current_longitude, signal.latitude, signal.longitude)
+        timing = calculate_queue_dissipation(dist, speed_mps, request.queue_count)
+
+        if next_signal_id is None:
+            next_signal_id = signal.id
+            dist_to_next = round(dist, 1)
+            next_eta = round(timing["vehicle_eta_seconds"], 1)
+            clear_time = round(timing["queue_clear_time"], 1)
+            threshold = round(timing["trigger_threshold_seconds"], 1)
+
+        is_triggered_here = False
+        if timing["should_trigger_preemption"] and not preemption_triggered:
+            await trigger_green_wave(
+                db=db,
+                signal_id=signal.id,
+                vehicle_id=request.vehicle_id,
+                hold_duration_seconds=request.hold_duration_seconds,
+            )
+            preemption_triggered = True
+            preempted_signal_id = signal.id
+            is_triggered_here = True
+
+        details.append({
+            "signal_id": signal.id,
+            "signal_name": signal.name,
+            "current_phase": signal.current_phase,
+            "is_preempted": signal.is_preempted,
+            "distance_meters": round(dist, 1),
+            "vehicle_eta_seconds": round(timing["vehicle_eta_seconds"], 1),
+            "queue_clear_time_seconds": round(timing["queue_clear_time"], 1),
+            "trigger_threshold_seconds": round(timing["trigger_threshold_seconds"], 1),
+            "should_trigger": timing["should_trigger_preemption"],
+            "triggered": is_triggered_here,
+        })
+
+    return CorridorEvaluationResponse(
+        vehicle_id=request.vehicle_id,
+        evaluated_signals_count=len(corridor_signals),
+        preemption_triggered=preemption_triggered,
+        preempted_signal_id=preempted_signal_id,
+        next_signal_id=next_signal_id,
+        distance_to_signal_meters=dist_to_next,
+        vehicle_eta_seconds=next_eta,
+        queue_clear_time_seconds=clear_time,
+        trigger_threshold_seconds=threshold,
+        details=details,
+    )
 
 
 @router.get("/{id}", response_model=SignalResponse, summary="Get traffic signal by ID")

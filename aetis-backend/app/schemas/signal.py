@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -39,3 +39,29 @@ class SignalResponse(SignalBase):
     preemption_end_time: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CorridorEvaluationRequest(BaseModel):
+    vehicle_id: str = Field(..., description="Approaching emergency vehicle identifier", json_schema_extra={"example": "EV-AMB-01"})
+    current_latitude: float = Field(..., ge=-90.0, le=90.0, description="Current GPS latitude of vehicle", json_schema_extra={"example": 12.9710})
+    current_longitude: float = Field(..., ge=-180.0, le=180.0, description="Current GPS longitude of vehicle", json_schema_extra={"example": 77.5940})
+    speed_kmh: float = Field(default=45.0, ge=0.0, description="Vehicle speed in km/h", json_schema_extra={"example": 50.0})
+    destination_latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0, description="Optional route destination latitude")
+    destination_longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0, description="Optional route destination longitude")
+    emergency_id: Optional[str] = Field(default=None, description="Optional emergency incident ID to look up route destination")
+    queue_count: int = Field(default=5, ge=0, description="Observed/estimated vehicle queue at intersection", json_schema_extra={"example": 4})
+    corridor_width_meters: float = Field(default=80.0, ge=10.0, le=500.0, description="Width of corridor in meters", json_schema_extra={"example": 80.0})
+    hold_duration_seconds: int = Field(default=45, ge=10, le=300, description="Green wave hold time in seconds", json_schema_extra={"example": 45})
+
+
+class CorridorEvaluationResponse(BaseModel):
+    vehicle_id: str
+    evaluated_signals_count: int
+    preemption_triggered: bool
+    preempted_signal_id: Optional[str] = None
+    next_signal_id: Optional[str] = None
+    distance_to_signal_meters: Optional[float] = None
+    vehicle_eta_seconds: Optional[float] = None
+    queue_clear_time_seconds: Optional[float] = None
+    trigger_threshold_seconds: Optional[float] = None
+    details: List[Dict[str, Any]] = []

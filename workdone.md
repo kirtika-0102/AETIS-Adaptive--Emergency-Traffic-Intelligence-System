@@ -227,3 +227,240 @@ async def test_ws():
 
 asyncio.run(test_ws())
 ```
+
+
+## Phase B3 Completed: GPS Breadcrumb Ingestion & Real-Time Map Broadcast
+- **Timestamp**: 2026-11-16T00:02:30+05:30
+- **Executed by**: Person B
+- **Branch**: `feature/realtime`
+
+### Exact Files Created / Modified
+1. `aetis-backend/app/schemas/telemetry.py` - Created Pydantic schema `LocationUpdatePayload` with strict coordinate, speed, heading, and timestamp validation.
+2. `aetis-backend/app/schemas/__init__.py` - Exported `LocationUpdatePayload`.
+3. `aetis-backend/app/models/vehicle.py` - SQLAlchemy model `Vehicle` with `current_latitude`, `current_longitude`, `speed`, `heading`, `status`, and `last_update_at`.
+4. `aetis-backend/app/models/emergency.py` - SQLAlchemy model `Emergency` with `assigned_vehicle_id`, `hospital_id`, destination coordinates, and triage status.
+5. `aetis-backend/app/models/__init__.py` - Exported `Vehicle` and `Emergency`.
+6. `aetis-backend/app/services/telemetry_service.py` - Created high-frequency GPS telemetry processing pipeline: database updates, Haversine distance calculations, dynamic ETA estimations, and multi-room broadcasts.
+7. `aetis-backend/app/services/__init__.py` - Exported `process_location_update`.
+8. `aetis-backend/app/routers/ws.py` - Implemented incoming WebSocket handler for `tracking:update_location` messages, invoking telemetry ingestion and broadcasting to relevant rooms.
+9. `aetis-backend/app/routers/tracking.py` - Created REST fallback endpoint `POST /api/v1/tracking/update-location` for cellular proxy/firewall scenarios, and vehicle position query endpoint `GET /api/v1/tracking/vehicle/{id}`.
+10. `aetis-backend/app/routers/__init__.py` - Exported `tracking_router`.
+11. `aetis-backend/app/main.py` - Registered `tracking_router` and seeded initial vehicle and active emergency records.
+12. `aetis-backend/tests/test_tracking.py` - Automated integration tests verifying WebSocket telemetry ingestion, database updates, real-time broadcasts to dispatchers/emergency/hospital rooms, and the REST fallback API.
+
+---
+
+### Ingestion Payload Structure for Driver GPS Coordinates
+
+Drivers send telemetry breadcrumbs over WebSocket (`type: "tracking:update_location"`) or HTTP POST (`/api/v1/tracking/update-location`):
+
+```json
+{
+  "type": "tracking:update_location",
+  "data": {
+    "vehicle_id": "EV-AMB-01",
+    "emergency_id": "EMG-101",
+    "latitude": 12.9720,
+    "longitude": 77.5950,
+    "speed": 58.5,
+    "heading": 85.0,
+    "timestamp": 1700000000.0,
+    "hospital_id": "HOSP-CITY",
+    "eta_seconds": 240.0
+  }
+}
+```
+
+#### Field Specifications:
+- `vehicle_id` (`str`): Unique vehicle identifier (e.g. `'EV-AMB-01'`)
+- `emergency_id` (`str`): Identifier of the active dispatched incident
+- `latitude` (`float`): Decimal latitude (-90.0 to 90.0)
+- `longitude` (`float`): Decimal longitude (-180.0 to 180.0)
+- `speed` (`float`): Current vehicle velocity in km/h ($\ge 0.0$)
+- `heading` (`float`): Compass bearing in degrees (0.0 to 360.0)
+- `timestamp` (`float`): Unix epoch timestamp of GPS fix in seconds
+- `hospital_id` (`Optional[str]`): Optional destination hospital override
+- `eta_seconds` (`Optional[float]`): Optional pre-calculated ETA override
+
+---
+
+### Broadcast Flow Mapping: Driver Socket -> Server -> Dispatcher LiveMap & Hospital Screens
+
+```
+                                [ Emergency Vehicle Driver ]
+                                              |
+                   WebSocket {"type": "tracking:update_location", "data": {...}}
+                   OR HTTP POST /api/v1/tracking/update-location
+                                              |
+                                              v
+                              [ AETIS Telemetry Ingestion ]
+                                              |
+                     +------------------------+------------------------+
+                     |                                                 |
+         [ Database Persistence ]                            [ Event Broadcaster ]
+     Update Vehicle latitude, longitude,                               |
+     speed, heading, and timestamp.                                    |
+                     |                                                 |
+                     +------------------------+------------------------+
+                                              |
+               +------------------------------+------------------------------+
+               |                                                             |
+               v                                                             v
+       Room: "dispatchers"                                       Room: "emergency:{id}"
+   Event: "tracking:location_update"                         Event: "tracking:location_update"
+   Payload: { vehicle_id, latitude,                           Payload: { vehicle_id, latitude,
+              longitude, speed, heading, ... }                           longitude, speed, heading, ... }
+               |                                                             |
+               v                                                             v
+    [ Central Dispatcher ]                                         [ Responding Unit / ]
+    Live Map EV Marker Updates &                                  [ Navigation Screen ]
+    Real-time Breadcrumb Polylines
+                                              |
+                                              v (If destination hospital is linked)
+                                    Room: "hospital:{hospital_id}"
+                                 Event: "tracking:eta_update" & "inbound.eta"
+                                 Payload: { emergency_id, vehicle_id,
+                                            hospital_id, eta_seconds, ... }
+                                              |
+                                              v
+                                  [ Hospital Triage Desk ]
+                                  Live ETA Countdown & Bed Prep
+```
+
+---
+
+### Verification Steps
+
+1. **Start Backend**:
+   ```powershell
+   cd aetis-backend
+   uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+   ```
+2. **Open Swagger UI & Dispatcher WebSocket**:
+   - In Postman or browser console, open WebSocket to `ws://127.0.0.1:8000/ws?client_type=dispatcher`.
+   - In another tab or Postman connection, open WebSocket to `ws://127.0.0.1:8000/ws?client_type=hospital&hospital_id=HOSP-CITY`.
+3. **Emit Telemetry via Driver Socket or REST Fallback**:
+   - Send HTTP POST to `http://127.0.0.1:8000/api/v1/tracking/update-location` with:
+     ```json
+     {
+       "vehicle_id": "EV-AMB-01",
+       "emergency_id": "EMG-101",
+       "latitude": 12.9730,
+       "longitude": 77.5960,
+       "speed": 60.0,
+       "heading": 90.0,
+       "timestamp": 1700000010.0
+     }
+     ```
+4. **Observe Real-Time Deliveries**:
+   - The dispatcher WebSocket immediately receives `tracking:location_update`.
+   - The hospital WebSocket immediately receives `tracking:eta_update` with calculated `eta_seconds`.
+5. **Verify Database Updated**:
+   - Run `GET /api/v1/tracking/vehicle/EV-AMB-01`.
+   - Confirm coordinates and speed reflect the latest values (`lat: 12.973, lng: 77.596, speed: 60.0`).
+
+
+## Phase B4 Completed: Corridor Spatial Mapping & Queue-Flushing Preemption Engine
+- **Timestamp**: 2026-11-16T00:26:45+05:30
+- **Executed by**: Person B
+- **Branch**: `feature/realtime`
+
+### Exact Files Created / Modified
+1. `aetis-backend/app/services/routing_service.py` - Created spatial corridor routing engine containing `haversine_distance` and `get_signals_along_corridor` (cross-track vector projection and distance sorting).
+2. `aetis-backend/app/services/preemption_service.py` - Implemented predictive queue dissipation algorithm `calculate_queue_dissipation` and `trigger_green_wave` WebSocket broadcasting pipeline.
+3. `aetis-backend/app/services/__init__.py` - Exported `haversine_distance`, `get_signals_along_corridor`, `calculate_queue_dissipation`, and `trigger_green_wave`.
+4. `aetis-backend/app/schemas/signal.py` - Added Pydantic schemas `CorridorEvaluationRequest` and `CorridorEvaluationResponse`.
+5. `aetis-backend/app/schemas/__init__.py` - Exported corridor schemas.
+6. `aetis-backend/app/routers/signals.py` - Added endpoint `POST /api/v1/signals/evaluate-corridor` to evaluate downstream corridor signals and dynamically trigger green waves.
+7. `aetis-backend/tests/test_corridor.py` - Automated integration test suite validating Haversine calculations, cross-track corridor filtering, queue dissipation math, WebSocket event emissions, and corridor evaluation endpoints.
+
+---
+
+### Mathematical Formula for Queue Clearance and Arrival Timing
+
+The queue-flushing preemption engine predicts the exact moment to switch an upcoming red light to green so that stopped vehicles completely dissipate before the emergency vehicle arrives at the intersection at full operational speed, avoiding unnecessary emergency vehicle deceleration or harsh braking.
+
+$$\text{queue\_clear\_time} = (N_{\text{queue}} \times 2.0) + 15.0$$
+
+where:
+- $N_{\text{queue}}$ is the count of stopped vehicles queued at the red light approach.
+- $2.0 \text{ seconds}$ is the average startup and acceleration headway per vehicle.
+- $15.0 \text{ seconds}$ is the mandatory safety clearance buffer:
+  - $4.0\text{s}$ yellow change interval on opposing approaches,
+  - $2.0\text{s}$ all-red pedestrian and clearance interval,
+  - $9.0\text{s}$ initial queue acceleration and intersection entry buffer.
+
+The emergency vehicle's estimated time of arrival ($\text{ETA}$) to the stop line is calculated as:
+
+$$\text{speed}_{\text{mps}} = \max\left(\text{speed}_{\text{km/h}} \times \frac{1000}{3600}, 2.0\right)$$
+
+$$\text{vehicle\_eta\_seconds} = \begin{cases} \frac{\text{distance\_to\_signal}}{\text{speed}_{\text{mps}}}, & \text{if } \text{speed}_{\text{mps}} > 2.0 \text{ m/s} \\ 9999.0, & \text{otherwise} \end{cases}$$
+
+$$\text{trigger\_threshold\_seconds} = \text{queue\_clear\_time} + 5.0$$
+
+$$\text{should\_trigger\_preemption} = \text{vehicle\_eta\_seconds} \le \text{trigger\_threshold\_seconds}$$
+
+---
+
+### Preemption Phase Lifecycle Documentation
+
+```
+[Normal Cycle (RED/YELLOW/GREEN)]
+             |
+             v  Approaching EV detected (ETA <= queue_clear_time + 5s)
+[Preemption Activated (trigger_green_wave)]
+             |
+             +---> 1. Signal Phase forced to 'GREEN'
+             +---> 2. is_preempted = True, preempted_by_vehicle_id = vehicle_id
+             +---> 3. preemption_end_time = now + hold_duration (default 45s)
+             +---> 4. WS Broadcast -> "signals" room:
+             |        {"type": "signal:phase_changed", "data": {"phase": "GREEN", "countdown": 45}}
+             +---> 5. WS Broadcast -> "dispatchers" room:
+                      {"type": "signal:preemption_triggered", "data": {"signal_id": "...", "vehicle_id": "..."}}
+             |
+             v  Vehicle clears intersection OR hold_duration expires
+[Signal Reset (POST /api/v1/signals/{id}/reset)]
+             |
+             +---> 1. current_phase = 'RED'
+             +---> 2. is_preempted = False, preempted_by_vehicle_id = None
+             +---> 3. Autonomous fixed/adaptive cycle resumes
+```
+
+---
+
+### How to Test Corridor Evaluation via Swagger UI
+
+1. **Start the Backend Server**:
+   ```powershell
+   cd aetis-backend
+   uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+   ```
+2. **Open Swagger UI**:
+   Navigate to [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+3. **Locate Corridor Evaluation Endpoint**:
+   - Scroll to **Traffic Signals** section.
+   - Click `POST /api/v1/signals/evaluate-corridor` -> click **Try it out**.
+4. **Execute Corridor Evaluation Request**:
+   - Paste the following test payload (vehicle located ~150m west of `SIG-101` traveling at 54 km/h towards `SIG-102`):
+     ```json
+     {
+       "vehicle_id": "EV-AMB-01",
+       "current_latitude": 12.9715,
+       "current_longitude": 77.5932,
+       "speed_kmh": 54.0,
+       "destination_latitude": 12.9725,
+       "destination_longitude": 77.6075,
+       "queue_count": 5,
+       "corridor_width_meters": 80.0,
+       "hold_duration_seconds": 45
+     }
+     ```
+   - Click **Execute**.
+5. **Inspect Response**:
+   - Observe `preemption_triggered: true`.
+   - Observe `preempted_signal_id: "SIG-101"`.
+   - Observe `vehicle_eta_seconds` ($\approx 10.1\text{s}$) is less than `trigger_threshold_seconds` ($30.0\text{s}$).
+   - Observe `details` containing downstream signals sorted in proximity order.
+6. **Verify Signal Status**:
+   - Run `GET /api/v1/signals/SIG-101`.
+   - Confirm `"current_phase": "GREEN"` and `"is_preempted": true`.

@@ -4,6 +4,8 @@ from app.schemas.signal import (
     SignalCreate,
     SignalOverrideRequest,
     SignalResponse,
+    CorridorEvaluationRequest,
+    CorridorEvaluationResponse,
 )
 from app.schemas.camera import (
     CameraStatus,
@@ -19,6 +21,8 @@ __all__ = [
     "SignalCreate",
     "SignalOverrideRequest",
     "SignalResponse",
+    "CorridorEvaluationRequest",
+    "CorridorEvaluationResponse",
     "CameraStatus",
     "CameraBase",
     "CameraCreate",
