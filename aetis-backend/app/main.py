@@ -7,6 +7,7 @@ from app.models.camera import Camera, CameraStatus
 from app.models.signal import SignalPhase, TrafficSignal
 from app.routers.cameras import router as cameras_router
 from app.routers.signals import router as signals_router
+from app.routers.ws import router as ws_router
 
 
 def seed_initial_data():
@@ -120,9 +121,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Hardware Management Routers
+# Register Routers
 app.include_router(signals_router)
 app.include_router(cameras_router)
+app.include_router(ws_router)
 
 
 @app.get("/", tags=["Health"])

@@ -123,3 +123,107 @@
    - Locate the **Traffic Cameras** section.
    - Click `GET /api/v1/cameras` -> click **Execute**.
    - Verify the pre-seeded cameras (`CAM-201`, `CAM-202`, `CAM-203`) connected to `SIG-101` and `SIG-102`.
+
+
+## Phase B2 Completed: Real-Time WebSocket Connection Manager & Room Architecture
+- **Timestamp**: 2026-11-15T23:52:15+05:30
+- **Executed by**: Person B
+- **Branch**: `feature/realtime`
+
+### Exact Files Created / Modified
+1. `aetis-backend/app/services/websocket_manager.py` - Created `ConnectionManager` class with dynamic room dictionary (`active_rooms: Dict[str, Set[WebSocket]]`), connect/disconnect logic, dead-socket pruning, and `broadcast_to_room` JSON messaging engine.
+2. `aetis-backend/app/services/__init__.py` - Exported `ConnectionManager` and singleton `manager`.
+3. `aetis-backend/app/routers/ws.py` - Created `/ws` endpoint with client type and query parameter room routing (`dispatcher`, `driver`, `hospital`, `signal`), heartbeat ping/pong handling, and dynamic subscribe/unsubscribe support; added `/api/v1/ws/stats` monitoring endpoint.
+4. `aetis-backend/app/routers/__init__.py` - Exported `ws_router`.
+5. `aetis-backend/app/main.py` - Registered `ws_router` on FastAPI application.
+6. `aetis-backend/tests/test_websocket.py` - Comprehensive automated test suite validating role room assignment, heartbeat pings, targeted room broadcasting, dynamic room subscriptions, and disconnect cleanup.
+
+---
+
+### Full List of Supported WebSocket Rooms & Event Listeners
+
+| Room Name | Target Role / Subsystem | Automatic Assignment Criteria | Events & Messages Handled / Transmitted |
+|---|---|---|---|
+| `"dispatchers"` | Central dispatch operators | `client_type=dispatcher` (or `client_type=admin`) | `emergency.updated`, `emergency.status`, `emergency.removed`, `ev.updated`, `ev.ended`, `notification.new` |
+| `"signals"` | Real-time traffic controllers & route drivers | `client_type=dispatcher`, `client_type=driver`, or `client_type=signal` | `signal.status` (phase changes, cycle countdowns), `signal.route` (preempted green corridor) |
+| `"hospital:{hospital_id}"` | Receiving emergency hospital staff | `client_type=hospital` with `hospital_id=<id>` (or explicit `hospital_id` query param) | Inbound ambulance alerts, patient triage updates, real-time arrival estimates (`inbound.eta`) |
+| `"emergency:{emergency_id}"` | Responding EV drivers & incident room | `client_type=driver` with `emergency_id=<id>` (or explicit `emergency_id` query param) | `ev.moved` (live GPS coordinates, speed, bearing), route deviations, preemption corridor feedback |
+| `"custom:{name}"` | Dynamic runtime topics | Subscribed dynamically via `{"type": "subscribe", "room": "..."}` | Custom topic broadcasts, weather alerts, road closure notifications |
+
+#### Core Protocol Message Handlers:
+- **Heartbeat Ping / Pong**:
+  - Inbound: `{"type": "ping"}`
+  - Outbound: `{"type": "pong", "data": {"timestamp": "<ISO>"}}`
+- **Dynamic Subscription**:
+  - Inbound: `{"type": "subscribe", "room": "<room_name>"}`
+  - Outbound: `{"type": "room.subscribed", "data": {"room": "<room_name>"}}`
+- **Dynamic Unsubscription**:
+  - Inbound: `{"type": "unsubscribe", "room": "<room_name>"}`
+  - Outbound: `{"type": "room.unsubscribed", "data": {"room": "<room_name>"}}`
+- **Room Broadcast Event Format**:
+  - Outbound: `{"type": "<event_type>", "data": { ... }}`
+
+---
+
+### Instructions on How to Connect & Test WebSockets
+
+#### Option 1: Test with Postman WebSocket Request
+1. Open Postman -> Click **New** -> Select **WebSocket Request**.
+2. Enter URL:
+   ```
+   ws://127.0.0.1:8000/ws?client_type=dispatcher
+   ```
+3. Click **Connect**.
+4. Observe the initial JSON response:
+   ```json
+   {
+     "type": "connection.established",
+     "data": {
+       "client_type": "dispatcher",
+       "rooms": ["dispatchers", "signals"],
+       "connected_at": "..."
+     }
+   }
+   ```
+5. In the message input, send a heartbeat ping:
+   ```json
+   {
+     "type": "ping"
+   }
+   ```
+6. Receive response:
+   ```json
+   {
+     "type": "pong",
+     "data": {
+       "timestamp": "..."
+     }
+   }
+   ```
+
+#### Option 2: Test with a Python Script
+Run the following script to connect as a driver and receive real-time events:
+```python
+import asyncio
+import json
+import websockets
+
+async def test_ws():
+    url = "ws://127.0.0.1:8000/ws?client_type=driver&emergency_id=EMG-101"
+    async with websockets.connect(url) as ws:
+        # Receive welcome connection payload
+        welcome = await ws.recv()
+        print("Connected:", json.loads(welcome))
+
+        # Send heartbeat ping
+        await ws.send(json.dumps({"type": "ping"}))
+        pong = await ws.recv()
+        print("Received Heartbeat:", json.loads(pong))
+
+        # Dynamically subscribe to an additional topic
+        await ws.send(json.dumps({"type": "subscribe", "room": "hospital:HOSP-MG"}))
+        sub_ack = await ws.recv()
+        print("Subscribed:", json.loads(sub_ack))
+
+asyncio.run(test_ws())
+```
