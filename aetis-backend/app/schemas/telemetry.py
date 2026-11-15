@@ -23,3 +23,23 @@ class LocationUpdatePayload(BaseModel):
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         """Backward-compatible dict method mapping to Pydantic v2 model_dump."""
         return self.model_dump(*args, **kwargs)
+
+
+class CameraDetectionPayload(BaseModel):
+    """
+    Detection payload posted by computer vision edge models (YOLO / OpenCV).
+    """
+    camera_id: str = Field(..., description="Camera ID that captured detection", json_schema_extra={"example": "CAM-201"})
+    detected_vehicle_type: str = Field(..., description="Classified vehicle type (e.g. AMBULANCE, FIRE_TRUCK, POLICE)", json_schema_extra={"example": "AMBULANCE"})
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Model prediction confidence (0.0 to 1.0)", json_schema_extra={"example": 0.94})
+    estimated_queue_count: int = Field(default=0, ge=0, description="Estimated vehicle queue length at intersection approach", json_schema_extra={"example": 4})
+    timestamp: float = Field(..., description="Epoch timestamp in seconds", json_schema_extra={"example": 1700000000.0})
+
+    # Optional metadata
+    vehicle_id: Optional[str] = Field(default=None, description="Optional matched vehicle identifier", json_schema_extra={"example": "AMB-01"})
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    def dict(self, *args, **kwargs) -> Dict[str, Any]:
+        """Backward-compatible dict method mapping to Pydantic v2 model_dump."""
+        return self.model_dump(*args, **kwargs)

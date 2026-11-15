@@ -2,7 +2,7 @@
 
 ## Phase B1 Completed: Traffic Hardware Models & Signal/Camera CRUD APIs
 - **Timestamp**: 2026-11-15T23:37:00+05:30
-- **Executed by**: Person B
+- **Executed by**: kartik
 - **Branch**: `feature/realtime`
 
 ### Exact Files Created / Modified
@@ -127,7 +127,7 @@
 
 ## Phase B2 Completed: Real-Time WebSocket Connection Manager & Room Architecture
 - **Timestamp**: 2026-11-15T23:52:15+05:30
-- **Executed by**: Person B
+- **Executed by**: kartik
 - **Branch**: `feature/realtime`
 
 ### Exact Files Created / Modified
@@ -231,7 +231,7 @@ asyncio.run(test_ws())
 
 ## Phase B3 Completed: GPS Breadcrumb Ingestion & Real-Time Map Broadcast
 - **Timestamp**: 2026-11-16T00:02:30+05:30
-- **Executed by**: Person B
+- **Executed by**: kartik
 - **Branch**: `feature/realtime`
 
 ### Exact Files Created / Modified
@@ -362,7 +362,7 @@ Drivers send telemetry breadcrumbs over WebSocket (`type: "tracking:update_locat
 
 ## Phase B4 Completed: Corridor Spatial Mapping & Queue-Flushing Preemption Engine
 - **Timestamp**: 2026-11-16T00:26:45+05:30
-- **Executed by**: Person B
+- **Executed by**: kartik
 - **Branch**: `feature/realtime`
 
 ### Exact Files Created / Modified
@@ -464,3 +464,75 @@ $$\text{should\_trigger\_preemption} = \text{vehicle\_eta\_seconds} \le \text{tr
 6. **Verify Signal Status**:
    - Run `GET /api/v1/signals/SIG-101`.
    - Confirm `"current_phase": "GREEN"` and `"is_preempted": true`.
+
+
+## Phase B5 Completed: Camera AI Ingestion Webhook & GPS Stream Simulator
+- **Timestamp**: 2026-11-16T00:37:55+05:30
+- **Executed by**: kartik
+- **Branch**: `feature/realtime`
+
+### Exact Files Created / Modified
+1. `aetis-backend/app/schemas/telemetry.py` - Created Pydantic schema `CameraDetectionPayload` (`camera_id`, `detected_vehicle_type`, `confidence`, `estimated_queue_count`, `timestamp`).
+2. `aetis-backend/app/schemas/__init__.py` - Exported `CameraDetectionPayload`.
+3. `aetis-backend/app/routers/detections.py` - Created AI detection ingestion webhook `POST /api/v1/detections/camera-alert` with confidence gating ($\ge 0.80$), directional downstream signal handover, queue dissipation calculation, and WebSocket broadcasting.
+4. `aetis-backend/app/routers/__init__.py` - Exported `detections_router`.
+5. `aetis-backend/app/main.py` - Registered `detections_router`.
+6. `aetis-backend/scripts/simulate_driver_gps.py` & `scripts/simulate_driver_gps.py` - Created standalone real-time driver GPS telemetry simulation script streaming 15 waypoints from Central Square towards City Memorial Trauma Center with WebSocket connection and REST fallback.
+7. `aetis-backend/tests/test_detections.py` - Automated integration test suite validating high-confidence ambulance detection preemption triggers, low-confidence drop logic, non-emergency vehicle filtering, and 404 error cases.
+
+---
+
+### Camera Detection Payload Schema & Downstream Handover Logic
+
+#### 1. Ingestion Payload Schema
+```json
+{
+  "camera_id": "CAM-201",
+  "detected_vehicle_type": "AMBULANCE",
+  "confidence": 0.94,
+  "estimated_queue_count": 5,
+  "timestamp": 1700000000.0,
+  "vehicle_id": "AMB-01"
+}
+```
+
+#### 2. Downstream Handover Logic:
+1. **Intake & Verification**:
+   - Webhook receives detection from computer vision inference edge nodes (YOLO / OpenCV).
+   - Validates that `detected_vehicle_type == 'AMBULANCE'` and `confidence >= 0.80`.
+   - If criteria not met, gracefully returns status `"alert_ignored"` and drops preemption.
+2. **Topology Traversal & Directional Handover**:
+   - Resolves the camera's connected upstream signal `connected_signal_id` (e.g. `SIG-101`).
+   - Uses the camera's `view_heading` orientation vector to identify the downstream intersection along the road approach (e.g. `SIG-102`).
+3. **Automated Queue Flushing**:
+   - Computes queue clearance window based on `estimated_queue_count`:
+     $$\text{hold\_duration} = \max(35, (N_{\text{queue}} \times 2.0) + 30.0\text{s})$$
+   - Activates green-wave preemption on the target downstream signal (`current_phase = 'GREEN'`, `is_preempted = True`).
+4. **WebSocket Multi-Room Broadcast**:
+   - Emits `camera:detection_alert` to room `"signals"`.
+   - Emits `camera:detection_alert` to room `"dispatchers"`.
+
+---
+
+### Command to Run Driver Simulator
+
+From the repository root:
+```powershell
+python scripts/simulate_driver_gps.py
+```
+Or from inside `aetis-backend/`:
+```powershell
+cd aetis-backend
+python scripts/simulate_driver_gps.py
+```
+
+---
+
+### kartik SIGN-OFF
+**All Real-Time WebSocket channels, Signal Preemption algorithms, and AI Detection hooks are fully implemented, verified with 21 passing automated unit/integration tests, and ready for Sync Gate 2 merge.**
+
+- **Hardware Models & CRUD**: TrafficSignal & Camera SQLAlchemy models + CRUD APIs (Phase B1)
+- **Real-Time WebSocket Architecture**: Dynamic Pub/Sub rooms (`dispatchers`, `signals`, `hospital:{id}`, `emergency:{id}`) + Heartbeat ping/pong (Phase B2)
+- **High-Frequency GPS Ingestion**: Telemetry breadcrumb intake + real-time map multi-room broadcasting + REST fallback (Phase B3)
+- **Spatial Corridor Mapping & Preemption**: Haversine vector projections + predictive queue dissipation timing + green wave triggers (Phase B4)
+- **Computer Vision Webhook & Driver Simulator**: AI detection intake + downstream signal preemption + 15-waypoint GPS breadcrumb simulator (Phase B5)

@@ -8,6 +8,7 @@ from app.models.emergency import Emergency
 from app.models.signal import SignalPhase, TrafficSignal
 from app.models.vehicle import Vehicle
 from app.routers.cameras import router as cameras_router
+from app.routers.detections import router as detections_router
 from app.routers.signals import router as signals_router
 from app.routers.tracking import router as tracking_router
 from app.routers.ws import router as ws_router
@@ -154,6 +155,7 @@ app.include_router(signals_router)
 app.include_router(cameras_router)
 app.include_router(ws_router)
 app.include_router(tracking_router)
+app.include_router(detections_router)
 
 
 @app.get("/", tags=["Health"])
