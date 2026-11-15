@@ -2,8 +2,13 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
+from app.database import get_db
+from app.schemas.telemetry import LocationUpdatePayload
+from app.services.telemetry_service import process_location_update
 from app.services.websocket_manager import manager
 
 logger = logging.getLogger("aetis.websocket")
@@ -54,9 +59,11 @@ async def websocket_endpoint(
     client_type: str = Query(default="dispatcher", description="Client role: dispatcher, driver, hospital, signal"),
     emergency_id: Optional[str] = Query(default=None, description="Active emergency incident ID"),
     hospital_id: Optional[str] = Query(default=None, description="Hospital identifier"),
+    db: Session = Depends(get_db),
 ):
     """
-    Real-time WebSocket endpoint with automatic room assignment and heartbeat ping/pong.
+    Real-time WebSocket endpoint with automatic room assignment, heartbeat ping/pong,
+    and high-frequency GPS telemetry breadcrumb ingestion.
     """
     await websocket.accept()
 
@@ -82,7 +89,7 @@ async def websocket_endpoint(
         manager.disconnect_client(websocket)
         return
 
-    # Continuous listening loop with heartbeat ping/pong
+    # Continuous listening loop
     try:
         while True:
             raw_text = await websocket.receive_text()
@@ -103,6 +110,27 @@ async def websocket_endpoint(
             elif msg_type == "pong":
                 # Heartbeat acknowledgment from client
                 pass
+
+            elif msg_type == "tracking:update_location":
+                # High-frequency GPS telemetry ingestion
+                payload_raw = message.get("data")
+                if isinstance(payload_raw, dict):
+                    try:
+                        payload = LocationUpdatePayload(**payload_raw)
+                        await process_location_update(payload, db)
+                    except (ValidationError, Exception) as err:
+                        logger.warning(f"Invalid tracking:update_location payload: {err}")
+                        await websocket.send_json({
+                            "type": "error",
+                            "data": {
+                                "message": f"Invalid telemetry payload: {str(err)}",
+                            },
+                        })
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": "Missing 'data' dictionary for tracking:update_location"},
+                    })
 
             elif msg_type == "subscribe":
                 # Dynamic runtime room subscription

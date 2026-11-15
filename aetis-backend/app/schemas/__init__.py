@@ -11,6 +11,7 @@ from app.schemas.camera import (
     CameraCreate,
     CameraResponse,
 )
+from app.schemas.telemetry import LocationUpdatePayload
 
 __all__ = [
     "SignalPhase",
@@ -22,4 +23,5 @@ __all__ = [
     "CameraBase",
     "CameraCreate",
     "CameraResponse",
+    "LocationUpdatePayload",
 ]

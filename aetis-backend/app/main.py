@@ -4,9 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, SessionLocal, engine
 from app.models.camera import Camera, CameraStatus
+from app.models.emergency import Emergency
 from app.models.signal import SignalPhase, TrafficSignal
+from app.models.vehicle import Vehicle
 from app.routers.cameras import router as cameras_router
 from app.routers.signals import router as signals_router
+from app.routers.tracking import router as tracking_router
 from app.routers.ws import router as ws_router
 
 
@@ -87,6 +90,31 @@ def seed_initial_data():
                 ),
             ]
             db.add_all(sample_cameras)
+
+            # Sample Vehicle and Active Emergency
+            sample_vehicle = Vehicle(
+                id="EV-AMB-01",
+                label="City Hospital Ambulance 1",
+                type="ambulance",
+                current_latitude=12.9716,
+                current_longitude=77.5946,
+                speed=48.0,
+                heading=90.0,
+                status="en_route",
+            )
+            sample_emergency = Emergency(
+                id="EMG-101",
+                assigned_vehicle_id="EV-AMB-01",
+                hospital_id="HOSP-CITY",
+                hospital_name="City Central Emergency Care",
+                status="en_route",
+                severity="CRITICAL",
+                destination_lat=12.9784,
+                destination_lng=77.6408,
+                destination_name="City Central Hospital Trauma Center",
+            )
+            db.add(sample_vehicle)
+            db.add(sample_emergency)
             db.commit()
     finally:
         db.close()
@@ -125,6 +153,7 @@ app.add_middleware(
 app.include_router(signals_router)
 app.include_router(cameras_router)
 app.include_router(ws_router)
+app.include_router(tracking_router)
 
 
 @app.get("/", tags=["Health"])
