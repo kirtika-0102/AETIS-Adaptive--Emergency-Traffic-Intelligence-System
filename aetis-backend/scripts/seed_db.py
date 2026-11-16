@@ -18,7 +18,8 @@ from pathlib import Path
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.core.database import SessionLocal
+from app.core.database import Base, SessionLocal, engine
+from app.models import *  # ensure all models registered
 from app.core.security import get_password_hash
 from app.models.emergency import Emergency
 from app.models.hospital import Hospital, HospitalAlert
@@ -155,6 +156,7 @@ SEED_SIGNALS = [
 
 def seed_database():
     """Seed initial records idempotently without duplicate key collisions."""
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     print("=" * 60)
     print("AETIS Central Engine — Database Seeder (Phase A5)")
