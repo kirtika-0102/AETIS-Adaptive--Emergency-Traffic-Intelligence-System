@@ -1,10 +1,15 @@
+"""
+AETIS — Traffic Signal Models
+Includes TrafficSignal (real-time hardware, preemption, cameras) and Signal (analytics).
+"""
+
 import enum
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.core.database import Base
 
 
 class SignalPhase(str, enum.Enum):
@@ -18,18 +23,42 @@ class TrafficSignal(Base):
 
     __tablename__ = "traffic_signals"
 
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    current_phase = Column(String, default=SignalPhase.RED.value, nullable=False)
-    normal_cycle_seconds = Column(Integer, default=60, nullable=False)
-    is_preempted = Column(Boolean, default=False, nullable=False)
-    preempted_by_vehicle_id = Column(String, nullable=True)
-    preemption_end_time = Column(DateTime, nullable=True)
+    id: Mapped[str] = mapped_column(String(50), primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    current_phase: Mapped[str] = mapped_column(String(10), default=SignalPhase.RED.value, nullable=False)
+    normal_cycle_seconds: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    is_preempted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    preempted_by_vehicle_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    preemption_end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     cameras = relationship("Camera", back_populates="signal", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<TrafficSignal id={self.id} name={self.name} phase={self.current_phase} preempted={self.is_preempted}>"
+
+
+class Signal(Base):
+    """SQLAlchemy model representing high-level signal overview and analytics."""
+
+    __tablename__ = "signals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="NORMAL",
+        comment="Enum: NORMAL | PRIORITY | PENDING | FAULT",
+    )
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    preemptions_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_preemption_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    def __repr__(self) -> str:
+        return f"<Signal id={self.id} name={self.name} status={self.status}>"

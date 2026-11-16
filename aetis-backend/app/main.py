@@ -1,12 +1,20 @@
+"""
+AETIS Central Engine — FastAPI Application Entrypoint
+Integrates Core REST APIs, Authentication, Fleets, Hospitals, Analytics,
+and Real-Time Traffic Signal Preemption, Camera Vision Webhooks, and WebSockets.
+"""
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, SessionLocal, engine
+from app.core.config import settings
+from app.core.database import Base, SessionLocal, engine
 from app.models.camera import Camera, CameraStatus
 from app.models.emergency import Emergency
 from app.models.signal import SignalPhase, TrafficSignal
 from app.models.vehicle import Vehicle
+from app.routers import admin, analytics, auth, emergencies, hospitals, vehicles
 from app.routers.cameras import router as cameras_router
 from app.routers.detections import router as detections_router
 from app.routers.signals import router as signals_router
@@ -15,7 +23,7 @@ from app.routers.ws import router as ws_router
 
 
 def seed_initial_data():
-    """Seed initial sample signals and cameras if the database is currently empty."""
+    """Seed initial sample signals, cameras, vehicles, and emergencies if empty."""
     db = SessionLocal()
     try:
         signal_count = db.query(TrafficSignal).count()
@@ -95,20 +103,23 @@ def seed_initial_data():
             # Sample Vehicle and Active Emergency
             sample_vehicle = Vehicle(
                 id="EV-AMB-01",
+                call_sign="AMB-01",
                 label="City Hospital Ambulance 1",
-                type="ambulance",
+                type="AMBULANCE",
                 current_latitude=12.9716,
                 current_longitude=77.5946,
                 speed=48.0,
                 heading=90.0,
-                status="en_route",
+                status="AVAILABLE",
             )
             sample_emergency = Emergency(
                 id="EMG-101",
+                incident_number="INC-2026-0001",
+                title="City Central Trauma Incident",
                 assigned_vehicle_id="EV-AMB-01",
                 hospital_id="HOSP-CITY",
                 hospital_name="City Central Emergency Care",
-                status="en_route",
+                status="DISPATCHED",
                 severity="CRITICAL",
                 destination_lat=12.9784,
                 destination_lng=77.6408,
@@ -121,11 +132,6 @@ def seed_initial_data():
         db.close()
 
 
-# Ensure tables are created
-Base.metadata.create_all(bind=engine)
-seed_initial_data()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure tables exist on startup
@@ -135,22 +141,69 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AETIS Real-Time Backend API",
-    description="Adaptive Emergency Traffic Intelligence System - Hardware Management & Preemption Engine",
+    title=settings.PROJECT_NAME,
     version="1.0.0",
+    description="Adaptive Emergency Traffic Intelligence System — Central Engine & Real-Time Preemption API",
     lifespan=lifespan,
 )
 
-# Enable CORS for frontend connectivity
+# ---------------------------------------------------------------------------
+# CORS — allow Vite dev server and external clients
+# ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "*",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register Routers
+# ---------------------------------------------------------------------------
+# Core Management & Admin Routers (Person A)
+# ---------------------------------------------------------------------------
+app.include_router(
+    auth.router,
+    prefix="/api/v1/auth",
+    tags=["Authentication"],
+)
+
+app.include_router(
+    emergencies.router,
+    prefix="/api/v1/emergencies",
+    tags=["Emergencies"],
+)
+
+app.include_router(
+    vehicles.router,
+    prefix="/api/v1/vehicles",
+    tags=["Vehicles"],
+)
+
+app.include_router(
+    hospitals.router,
+    prefix="/api/v1/hospitals",
+    tags=["Hospitals"],
+)
+
+app.include_router(
+    analytics.router,
+    prefix="/api/v1/analytics",
+    tags=["Analytics"],
+)
+
+app.include_router(
+    admin.router,
+    prefix="/api/v1/admin",
+    tags=["Admin"],
+)
+
+# ---------------------------------------------------------------------------
+# Real-Time Telemetry & Hardware Control Routers (Person B)
+# ---------------------------------------------------------------------------
 app.include_router(signals_router)
 app.include_router(cameras_router)
 app.include_router(ws_router)
@@ -158,15 +211,19 @@ app.include_router(tracking_router)
 app.include_router(detections_router)
 
 
+# ---------------------------------------------------------------------------
+# Health-checks & Root
+# ---------------------------------------------------------------------------
 @app.get("/", tags=["Health"])
 def root():
     return {
-        "system": "AETIS Real-Time Backend",
+        "system": "AETIS Central Engine & Real-Time Backend",
         "status": "operational",
         "docs_url": "/docs",
     }
 
 
 @app.get("/health", tags=["Health"])
-def health_check():
+async def health_check():
+    """Simple liveness probe."""
     return {"status": "healthy"}
