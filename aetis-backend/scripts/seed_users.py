@@ -1,10 +1,12 @@
 """
 AETIS Central Engine — Database Seed Script
 Creates default demo accounts for each of the 4 supported roles,
-demo hospital, and demo fleet vehicles.
+demo hospital, demo fleet vehicles, and demo traffic signals.
 """
 
 import sys
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add project root to sys.path
@@ -12,7 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
-from app.models.hospital import Hospital
+from app.models.hospital import Hospital, HospitalAlert
+from app.models.signal import Signal
 from app.models.user import User
 from app.models.vehicle import Vehicle
 
@@ -111,6 +114,36 @@ DEMO_VEHICLES = [
     },
 ]
 
+DEMO_SIGNALS = [
+    {
+        "id": "SIG-01",
+        "name": "Market & 4th Street",
+        "status": "NORMAL",
+        "latitude": 37.7850,
+        "longitude": -122.4060,
+        "preemptions_count": 14,
+        "last_preemption_at": datetime.now(timezone.utc) - timedelta(hours=2),
+    },
+    {
+        "id": "SIG-02",
+        "name": "Market & 5th Street",
+        "status": "PRIORITY",
+        "latitude": 37.7830,
+        "longitude": -122.4080,
+        "preemptions_count": 28,
+        "last_preemption_at": datetime.now(timezone.utc) - timedelta(minutes=15),
+    },
+    {
+        "id": "SIG-03",
+        "name": "Mission & 6th Street",
+        "status": "NORMAL",
+        "latitude": 37.7810,
+        "longitude": -122.4100,
+        "preemptions_count": 7,
+        "last_preemption_at": datetime.now(timezone.utc) - timedelta(hours=5),
+    },
+]
+
 
 def seed_database():
     db = SessionLocal()
@@ -153,6 +186,17 @@ def seed_database():
                 print(f"Created vehicle: {v_data['id']} ({v_data['call_sign']})")
             else:
                 print(f"Vehicle already exists: {v_data['id']}")
+        db.commit()
+
+        # Seed traffic signals
+        for s_data in DEMO_SIGNALS:
+            existing_s = db.query(Signal).filter(Signal.id == s_data["id"]).first()
+            if not existing_s:
+                sig = Signal(**s_data)
+                db.add(sig)
+                print(f"Created traffic signal: {s_data['id']} ({s_data['name']})")
+            else:
+                print(f"Signal already exists: {s_data['id']}")
         db.commit()
 
         print("\nDatabase seeding completed successfully.")

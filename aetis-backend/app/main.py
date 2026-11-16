@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, emergencies, vehicles
+from app.routers import admin, analytics, auth, emergencies, hospitals, vehicles
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -48,6 +48,24 @@ app.include_router(
     vehicles.router,
     prefix="/api/v1/vehicles",
     tags=["Vehicles"],
+)
+
+app.include_router(
+    hospitals.router,
+    prefix="/api/v1/hospitals",
+    tags=["Hospitals"],
+)
+
+app.include_router(
+    analytics.router,
+    prefix="/api/v1/analytics",
+    tags=["Analytics"],
+)
+
+app.include_router(
+    admin.router,
+    prefix="/api/v1/admin",
+    tags=["Admin"],
 )
 
 
