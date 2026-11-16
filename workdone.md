@@ -842,3 +842,138 @@ The `GET /api/v1/analytics/kpis` endpoint computes 5 real-time operational metri
        "password": "Password123!"
      }
      ```
+
+
+---
+
+## Phase A5 Completed: Database Seeder & Person A Final Deliverables
+
+- **Timestamp:** 2026-11-16T14:43:00+05:30
+- **Executed by:** Person A
+- **Status:** ✅ Complete & Verified
+
+---
+
+### Summary
+Built the comprehensive, idempotent database seeder script `scripts/seed_db.py` to populate baseline testing data across all system layers: 4 role-based accounts (Admin, Dispatcher, Driver, Hospital), 2 emergency trauma hospitals, 4 fleet response units, sample traffic signals, and an active emergency incident with an inbound ER triage alert. Performed complete end-to-end Swagger UI verification across all routers.
+
+---
+
+### Seeded Accounts Credentials Table
+
+| Email | Password | Role | Bound Facility / Unit | Primary Purpose |
+|---|---|---|---|---|
+| `admin@aetis.gov` | `password123` | **ADMIN** | System-wide | User administration, fleet management, and system-wide audits |
+| `dispatch@aetis.gov` | `password123` | **DISPATCHER** | Central Dispatch | Incident intake, unit assignment, preemption, and routing |
+| `driver@aetis.gov` | `password123` | **DRIVER** | `AMB-01` (Rapid-1) | Vehicle telemetry, transit updates, and incident response |
+| `hospital@aetis.gov` | `password123` | **HOSPITAL** | `HOSP-01` (City Memorial) | Inbound ER alert tracking, triage bay reservation, and trauma handshake |
+
+---
+
+### Seeded Domain Entities Summary
+
+#### 1. Hospital Facilities
+- **`HOSP-01`**: City Memorial Trauma Center (Lat: `28.6139`, Lng: `77.2090`, Beds: `12`, Trauma Level: `1`)
+- **`HOSP-02`**: Apex Specialty Emergency Hospital (Lat: `28.6289`, Lng: `77.2065`, Beds: `8`, Trauma Level: `2`)
+
+#### 2. Emergency Fleet Vehicles
+- **`AMB-01`**: Call Sign `Rapid-1`, Type `AMBULANCE`, License `DL-01-EM-1001`, Status `AVAILABLE`, Driver `driver@aetis.gov`
+- **`AMB-02`**: Call Sign `Rapid-2`, Type `AMBULANCE`, License `DL-01-EM-1002`, Status `AVAILABLE`
+- **`FIRE-01`**: Call Sign `Blaze-1`, Type `FIRE_TRUCK`, License `DL-01-FT-2001`, Status `AVAILABLE`
+- **`POL-01`**: Call Sign `Patrol-1`, Type `POLICE`, License `DL-01-PD-3001`, Status `AVAILABLE`
+
+#### 3. Traffic Signals
+- **`SIG-DEL-01`**: Rajiv Chowk Outer Intersection (Preemptions: `19`)
+- **`SIG-DEL-02`**: Barakhamba Junction (Preemptions: `31`)
+
+#### 4. Active Emergency Incident
+- **`EMG-01`** (`INC-2026-001`): *"Cardiac Emergency at Central Square"*, Severity `CRITICAL`, Status `PENDING`, Location: `(28.6100, 77.2100)`, Destination Hospital: `HOSP-01`.
+
+---
+
+### Command to Run the Database Seeder
+
+Run the following command from the `aetis-backend/` root:
+
+```bash
+cd aetis-backend
+python scripts/seed_db.py
+```
+
+*Note: The script is fully idempotent. If executed multiple times, existing records are updated in place without duplicate key or unique constraint errors.*
+
+---
+
+### Step-by-Step Verification Checklist for Swagger UI (`http://localhost:8000/docs`)
+
+1. **Start Backend Server:**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+   Open `http://localhost:8000/docs` in your browser.
+
+2. **[Checklist 1: Healthcheck]**
+   - Execute `GET /health` → Verify `{"status": "ok"}` (200 OK).
+
+3. **[Checklist 2: Authentication]**
+   - Execute `POST /api/v1/auth/login` with:
+     ```json
+     {"email": "dispatch@aetis.gov", "password": "password123"}
+     ```
+   - Verify `200 OK` returning `access_token` and `user` profile (`role: "DISPATCHER"`).
+   - Click the green **Authorize** button at the top of Swagger UI and paste the token (`Bearer <token>`).
+   - Execute `GET /api/v1/auth/me` → Verify user profile returned successfully.
+
+4. **[Checklist 3: Emergency Management & State Machine]**
+   - Execute `GET /api/v1/emergencies?status=active` → Verify `EMG-01` (`INC-2026-001`) is returned with `status: "PENDING"`.
+   - Execute `PATCH /api/v1/vehicles/AMB-01/assign` with:
+     ```json
+     {"emergency_id": "EMG-01"}
+     ```
+     → Verify both `AMB-01` and `EMG-01` status become `DISPATCHED`.
+   - Execute `PATCH /api/v1/emergencies/EMG-01/status` with `{"status": "IN_TRANSIT"}` → Verified.
+   - Execute `PATCH /api/v1/emergencies/EMG-01/status` with `{"status": "ARRIVED"}` → Verified.
+   - Execute `PATCH /api/v1/emergencies/EMG-01/status` with `{"status": "COMPLETED"}` → Verify `completed_at` is set and `AMB-01` is automatically restored to `AVAILABLE`.
+
+5. **[Checklist 4: Hospital Inbound Alerts & ER Handshake]**
+   - Log in as Hospital ER user: `POST /api/v1/auth/login` with `hospital@aetis.gov` / `password123`.
+   - Update Authorization token in Swagger UI.
+   - Execute `GET /api/v1/hospitals/inbound-alerts` → Verify inbound alert for `EMG-01` is returned bound to `HOSP-01`.
+   - Execute `POST /api/v1/hospitals/alerts/{alert_id}/acknowledge` with:
+     ```json
+     {"trauma_bay_assigned": "Trauma Bay 1", "notes": "Cardiology team on standby."}
+     ```
+     → Verify acknowledgment receipt with `acknowledged: true` and timestamp.
+
+6. **[Checklist 5: Fleet Vehicle Operations]**
+   - Execute `GET /api/v1/vehicles` → Verify list of 4 vehicles (`AMB-01`, `AMB-02`, `FIRE-01`, `POL-01`).
+   - Filter `GET /api/v1/vehicles?type=AMBULANCE` → Returns only ambulances.
+
+7. **[Checklist 6: Analytics KPIs]**
+   - Execute `GET /api/v1/analytics/kpis` → Verify all metrics computed:
+     - `total_emergencies >= 1`
+     - `active_emergencies >= 0`
+     - `avg_response_time_minutes >= 0.0`
+     - `fleet_utilization_rate >= 0.0`
+     - `total_signal_preemptions >= 50`
+
+8. **[Checklist 7: Admin Privileged Management]**
+   - Log in as Administrator: `POST /api/v1/auth/login` with `admin@aetis.gov` / `password123`.
+   - Authorize with admin token.
+   - Execute `GET /api/v1/admin/users` → Returns all registered accounts.
+   - Execute `POST /api/v1/admin/users` → Successfully provisions new user accounts.
+
+---
+
+### Person A SIGN-OFF
+
+| Milestone | Deliverable Scope | Status |
+|---|---|---|
+| **Phase A1** | Project Scaffolding, Core Models (User, Vehicle, Hospital, Emergency, AuditLog), Alembic Migrations | **COMPLETED & VERIFIED** |
+| **Phase A2** | Bcrypt Password Hashing, JWT Bearer Tokens, OAuth2 Scheme, RBAC Middleware (`require_role`) | **COMPLETED & VERIFIED** |
+| **Phase A3** | Emergency Incident Lifecycle State Machine, Fleet Vehicle Assignment, Auto-Free Unit Logic | **COMPLETED & VERIFIED** |
+| **Phase A4** | Hospital Inbound Alerts, ER Handshake Protocol, Analytics KPIs, Admin User Provisioning | **COMPLETED & VERIFIED** |
+| **Phase A5** | Idempotent Database Seeder (`scripts/seed_db.py`), End-to-End Swagger UI Verification | **COMPLETED & VERIFIED** |
+
+**PERSON A SIGN-OFF CONFIRMED:**
+All backend REST APIs, ORM models, Alembic migrations, RBAC security filters, and idempotent seed scripts for the AETIS Central Engine are complete, verified, and ready for **Sync Gate 2** merge.
