@@ -203,3 +203,146 @@ Expected response:
 Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive Swagger UI.
 
 ---
+
+
+## Phase A2 Completed: Authentication & Role-Based Access Control (RBAC)
+
+- **Timestamp:** 2026-11-16T14:22:00+05:30
+- **Executed by:** Person A
+- **Status:** ✅ Complete
+
+---
+
+### Summary
+Built the authentication system, password security with bcrypt, JWT token generation with python-jose, and Role-Based Access Control (RBAC) middleware for the AETIS backend. Registered the `/api/v1/auth` router with routes for logging in, fetching the current user profile, and refreshing tokens. Added OAuth2 compatibility for Swagger UI and built a demo database seeding script for all 4 roles.
+
+---
+
+### Exact List of Files Created / Modified
+
+| Action | Path | Description |
+|---|---|---|
+| Modified | `aetis-backend/app/core/security.py` | Added `get_password_hash`, `verify_password`, and `create_access_token` embedding `user_id`, `email`, and `role` |
+| Modified | `aetis-backend/app/schemas/auth.py` | Created `LoginRequest`, `UserResponse`, `TokenResponse` (matching Redux authSlice format), and `RefreshTokenRequest` |
+| Created | `aetis-backend/app/core/dependencies.py` | Created `oauth2_scheme`, `get_current_user` JWT validation dependency, and `require_role(allowed_roles)` RBAC dependency factory |
+| Created | `aetis-backend/app/routers/auth.py` | Built `/login` (POST), `/me` (GET), `/refresh` (POST), and OAuth2 `/token` routes |
+| Modified | `aetis-backend/app/routers/__init__.py` | Exported `auth` router |
+| Modified | `aetis-backend/app/main.py` | Included `auth.router` under `/api/v1/auth` with tag `Authentication` |
+| Created | `aetis-backend/scripts/seed_users.py` | Seed script to populate demo users for each of the 4 roles and demo hospital |
+
+---
+
+### API Endpoints Added
+
+#### 1. POST `/api/v1/auth/login`
+- **Summary:** Authenticates a user using email/username and password.
+- **Request Body JSON:**
+```json
+{
+  "email": "dispatcher@aetis.org",
+  "password": "Password123!"
+}
+```
+*(Also accepts `username` in place of `email`)*
+- **Response JSON (200 OK):**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsIn...",
+  "token_type": "bearer",
+  "user": {
+    "id": "usr-disp-01",
+    "email": "dispatcher@aetis.org",
+    "full_name": "Central Dispatcher",
+    "name": "Central Dispatcher",
+    "role": "DISPATCHER",
+    "phone": "+1-555-0101",
+    "hospital_id": null,
+    "is_active": true
+  },
+  "id": "usr-disp-01",
+  "role": "DISPATCHER",
+  "name": "Central Dispatcher",
+  "email": "dispatcher@aetis.org"
+}
+```
+
+#### 2. GET `/api/v1/auth/me`
+- **Summary:** Retrieves authenticated user's profile.
+- **Headers Required:** `Authorization: Bearer <access_token>`
+- **Response JSON (200 OK):**
+```json
+{
+  "id": "usr-disp-01",
+  "email": "dispatcher@aetis.org",
+  "full_name": "Central Dispatcher",
+  "name": "Central Dispatcher",
+  "role": "DISPATCHER",
+  "phone": "+1-555-0101",
+  "hospital_id": null,
+  "is_active": true
+}
+```
+
+#### 3. POST `/api/v1/auth/refresh`
+- **Summary:** Refreshes an expired or existing JWT access token.
+- **Headers / Body:** Accepts either `Authorization: Bearer <token>` header or JSON body:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsIn..."
+}
+```
+- **Response JSON (200 OK):** Refreshed `TokenResponse` with a new JWT access token.
+
+---
+
+### Details on the 4 Supported Roles
+
+| Role | Target Persona | Key Capabilities & RBAC Scope | Demo Account |
+|---|---|---|---|
+| **ADMIN** | System Administrator | Full platform management, user provisioning, system audits, and fleet configuration. | `admin@aetis.org` |
+| **DISPATCHER** | Emergency Operations Dispatcher | Incident intake, emergency dispatching, vehicle assignment, hospital routing, and route preemption monitoring. | `dispatcher@aetis.org` |
+| **DRIVER** | Ambulance / Emergency Vehicle Driver | Vehicle telemetry reporting, navigation guidance, route preemption status viewing, and incident arrival updates. | `driver@aetis.org` |
+| **HOSPITAL** | Hospital Staff / ER Coordinator | Bed capacity updates, inbound emergency tracking, trauma readiness acknowledgment, and patient triage notes. | `hospital@aetis.org` |
+
+*Default password for all demo accounts: `Password123!`*
+
+---
+
+### How to Test Login via Swagger UI at http://localhost:8000/docs
+
+1. **Start Database and Run Migrations (if not already running):**
+   ```bash
+   cd aetis-backend
+   alembic upgrade head
+   ```
+
+2. **Seed Demo Accounts:**
+   ```bash
+   cd aetis-backend
+   python scripts/seed_users.py
+   ```
+
+3. **Start the FastAPI Backend:**
+   ```bash
+   cd aetis-backend
+   uvicorn app.main:app --reload
+   ```
+
+4. **Test via Swagger UI (`http://localhost:8000/docs`):**
+   - Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+   - Expand `POST /api/v1/auth/login`.
+   - Click **Try it out**.
+   - Enter credentials in the Request Body:
+     ```json
+     {
+       "email": "dispatcher@aetis.org",
+       "password": "Password123!"
+     }
+     ```
+   - Click **Execute** and verify the `200 OK` response with `access_token` and `user` object.
+   - Copy the `access_token` value.
+   - Click the **Authorize** button (lock icon at the top of the Swagger page).
+   - Enter `Bearer <your_token>` or log in using the OAuth2 form.
+   - Expand `GET /api/v1/auth/me`, click **Try it out**, then **Execute**.
+   - Verify that your user profile is returned successfully (`200 OK`).
+   - Test `POST /api/v1/auth/refresh` to confirm token renewal.
