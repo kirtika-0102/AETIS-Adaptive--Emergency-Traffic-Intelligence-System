@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.routers import auth
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -26,6 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include Authentication router
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+# Alias for frontend proxy support without version prefix
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"], include_in_schema=False)
+
 
 @app.get("/", tags=["Root"])
 def root():
@@ -35,6 +41,12 @@ def root():
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
+        "auth_endpoints": {
+            "login": "/api/v1/auth/login",
+            "me": "/api/v1/auth/me",
+            "refresh": "/api/v1/auth/refresh",
+            "logout": "/api/v1/auth/logout",
+        },
     }
 
 

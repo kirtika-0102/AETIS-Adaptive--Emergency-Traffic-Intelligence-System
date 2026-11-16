@@ -1,4 +1,4 @@
-from app.schemas.auth import Token, TokenPayload, LoginRequest
+from app.schemas.auth import Token, TokenResponse, TokenPayload, LoginRequest
 from app.schemas.user import UserBase, UserCreate, UserUpdate, UserResponse
 from app.schemas.vehicle import VehicleBase, VehicleCreate, VehicleUpdate, VehicleLocationUpdate, VehicleResponse
 from app.schemas.hospital import HospitalBase, HospitalCreate, HospitalUpdate, HospitalResponse
@@ -6,6 +6,7 @@ from app.schemas.emergency import EmergencyBase, EmergencyCreate, EmergencyUpdat
 
 __all__ = [
     "Token",
+    "TokenResponse",
     "TokenPayload",
     "LoginRequest",
     "UserBase",
