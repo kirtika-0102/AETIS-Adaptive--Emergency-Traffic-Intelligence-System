@@ -2,6 +2,13 @@
 AETIS Central Engine — Routers Package
 """
 
-from app.routers import auth, emergencies, vehicles
+from app.routers import admin, analytics, auth, emergencies, hospitals, vehicles
 
-__all__ = ["auth", "emergencies", "vehicles"]
+__all__ = [
+    "admin",
+    "analytics",
+    "auth",
+    "emergencies",
+    "hospitals",
+    "vehicles",
+]

@@ -668,3 +668,177 @@ Whenever an incident enters either terminal state (`COMPLETED` or `CANCELLED`):
    - Advance to arrival: `PATCH /api/v1/emergencies/EMG-01/status` with `{"status": "ARRIVED"}`.
    - Complete incident: `PATCH /api/v1/emergencies/EMG-01/status` with `{"status": "COMPLETED"}`.
    - Query `GET /api/v1/vehicles?status=AVAILABLE` and confirm `AMB-01` has been automatically restored to `AVAILABLE`.
+
+
+---
+
+## Phase A4 Completed: Hospital Triage Handshake, ER Alerts & Analytics Reporting
+
+- **Timestamp:** 2026-11-16T14:36:00+05:30
+- **Executed by:** Person A
+- **Status:** ✅ Complete
+
+---
+
+### Summary
+Built the Hospital Inbound Triage Alerts system, Emergency Room (ER) Acknowledgment Handshake protocol, Analytics KPI intelligence calculations, and Admin user provisioning endpoints. Created the `HospitalAlert` and `Signal` database models and corresponding Alembic migration script (`0002_hospital_alerts_and_signals.py`). Registered `/api/v1/hospitals`, `/api/v1/analytics`, and `/api/v1/admin` in `app/main.py`.
+
+---
+
+### Exact List of Files Created / Modified
+
+| Action | Path | Description |
+|---|---|---|
+| Modified | `aetis-backend/app/models/hospital.py` | Added `HospitalAlert` model with fields for trauma bay reservation, ETA, patient condition, and acknowledgment |
+| Created | `aetis-backend/app/models/signal.py` | Created `Signal` model for traffic signal monitoring and preemption event metrics |
+| Modified | `aetis-backend/app/models/__init__.py` | Exported `HospitalAlert` and `Signal` models in registry |
+| Created | `aetis-backend/alembic/versions/0002_hospital_alerts_and_signals.py` | Alembic migration for `hospital_alerts` and `signals` tables |
+| Modified | `aetis-backend/app/schemas/hospital.py` | Added `HospitalAlertResponse`, `HospitalAcknowledgeRequest`, and `HospitalAcknowledgeReceipt` |
+| Created | `aetis-backend/app/schemas/analytics.py` | Created `AnalyticsKPIResponse` schema |
+| Modified | `aetis-backend/app/schemas/user.py` | Enriched `UserResponse` with auto-syncing `name` field |
+| Created | `aetis-backend/app/routers/hospitals.py` | Implemented `GET /inbound-alerts` and `POST /alerts/{alert_id}/acknowledge` |
+| Created | `aetis-backend/app/routers/analytics.py` | Implemented `GET /kpis` operational intelligence calculations |
+| Created | `aetis-backend/app/routers/admin.py` | Implemented `GET /users` and `POST /users` user provisioning (Admin only) |
+| Modified | `aetis-backend/app/routers/__init__.py` | Exported `admin`, `analytics`, `hospitals` routers |
+| Modified | `aetis-backend/app/main.py` | Registered `/api/v1/hospitals`, `/api/v1/analytics`, `/api/v1/admin` routers |
+| Modified | `aetis-backend/scripts/seed_users.py` | Added demo traffic signals (`SIG-01`, `SIG-02`, `SIG-03`) with preemption statistics |
+
+---
+
+### Hospital Alert Acknowledgment Flow Documentation
+
+```
+[ Active Incident En Route to Hospital ]
+ (Emergency destination_hospital_id = HOSP-01)
+                    │
+                    ▼
+       ┌────────────────────────┐
+       │ Inbound Alert Created  │  ──> System calculates ETA & patient condition
+       │  (acknowledged = False)│
+       └───────────┬────────────┘
+                   │
+                   ▼ (Hospital Staff Polling / Inbound View)
+       ┌────────────────────────┐
+       │ GET /inbound-alerts    │  ──> Resolves user.hospital_id automatically
+       └───────────┬────────────┘
+                   │
+                   ▼ (ER Staff Readiness Handshake)
+       ┌────────────────────────┐
+       │ POST /alerts/{id}/ack  │  ──> Submits trauma_bay_assigned ("Bay-02")
+       └───────────┬────────────┘
+                   │
+                   ▼
+       ┌────────────────────────┐
+       │ Acknowledgment Receipt │
+       │  • acknowledged = True │
+       │  • acknowledged_by_id  │
+       │  • acknowledged_at=now │
+       │  • trauma_bay_assigned │
+       │  • audit log recorded  │
+       └────────────────────────┘
+```
+
+1. **Alert Creation & Resolution:**
+   When an incident is routed to a hospital (`destination_hospital_id`), an inbound triage alert is tracked with the estimated arrival time (`estimated_arrival`) and patient notes.
+2. **Context-Aware Alert Retrieval:**
+   When hospital staff call `GET /api/v1/hospitals/inbound-alerts`, the endpoint automatically derives `target_hospital_id` from the JWT token's `current_user.hospital_id`, ensuring strict tenant isolation between hospital facilities.
+3. **Trauma Bay Handshake:**
+   The hospital ER team acknowledges inbound alerts via `POST /api/v1/hospitals/alerts/{alert_id}/acknowledge`, providing `trauma_bay_assigned` (e.g. `"Bay-02"`) and readiness notes. The system marks `acknowledged=True`, stamps `acknowledged_at=datetime.now(timezone.utc)`, logs an audit event, and returns a verified `HospitalAcknowledgeReceipt`.
+
+---
+
+### Analytics KPI Mathematical Formulas Implemented
+
+The `GET /api/v1/analytics/kpis` endpoint computes 5 real-time operational metrics:
+
+| KPI | Mathematical Formula / Query Definition | Output Type |
+|---|---|---|
+| **Total Emergencies** | $$\text{Count}(\text{emergencies})$$ | `integer` |
+| **Active Emergencies** | $$\text{Count}(\text{emergencies where status} \in \{\text{PENDING}, \text{DISPATCHED}, \text{IN\_TRANSIT}\})$$ | `integer` |
+| **Average Response Time** | $$\frac{1}{N} \sum_{i=1}^{N} \frac{\text{completed\_at}_i - \text{created\_at}_i}{60\text{ seconds}}$$ <br> *(Calculated over completed incidents where $\text{completed\_at} > \text{created\_at}$)* | `float` (minutes, 2 decimals) |
+| **Fleet Utilization Rate** | $$\left( \frac{\text{Count}(\text{vehicles where status} \in \{\text{DISPATCHED}, \text{BUSY}\})}{\text{Total Vehicles}} \right) \times 100$$ | `float` (percentage, 0.00–100.00) |
+| **Total Signal Preemptions** | $$\sum(\text{signals.preemptions\_count})$$ *(or preemption audit log events)* | `integer` |
+
+---
+
+### Instructions to Test the Hospital Workflow in Swagger UI
+
+1. **Start PostgreSQL, Migrate & Seed Demo Data:**
+   ```bash
+   cd aetis-backend
+   alembic upgrade head
+   python scripts/seed_users.py
+   ```
+
+2. **Launch the FastAPI Server:**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+3. **Navigate to Swagger UI:**
+   Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+
+4. **Step 1: Dispatcher Creates & Routes an Emergency:**
+   - Log in as Dispatcher (`dispatcher@aetis.org` / `Password123!`) via `POST /api/v1/auth/login`.
+   - Authorize with the token.
+   - Execute `POST /api/v1/emergencies`:
+     ```json
+     {
+       "title": "Severe Multi-Vehicle Collision",
+       "severity": "CRITICAL",
+       "pickup_latitude": 37.7749,
+       "pickup_longitude": -122.4194,
+       "pickup_address": "4th & Market St",
+       "patient_notes": "Multiple traumas, immediate ICU intake required",
+       "destination_hospital_id": "HOSP-01"
+     }
+     ```
+     *(Note the returned incident `id`, e.g. `EMG-01`)*
+   - Assign vehicle: `PATCH /api/v1/vehicles/AMB-01/assign` with `{"emergency_id": "EMG-01"}`.
+
+5. **Step 2: Hospital Staff Views Inbound Alerts:**
+   - Log in as Hospital ER User (`hospital@aetis.org` / `Password123!`) via `POST /api/v1/auth/login`.
+   - Click **Authorize** and enter the new token.
+   - Execute `GET /api/v1/hospitals/inbound-alerts`.
+   - Confirm that the inbound alert for `EMG-01` appears with:
+     - `emergency_title`: `"Severe Multi-Vehicle Collision"`
+     - `severity`: `"CRITICAL"`
+     - `acknowledged`: `false`
+     - Copy the alert `id` (UUID).
+
+6. **Step 3: Hospital Staff Acknowledges Alert & Assigns Trauma Bay:**
+   - Execute `POST /api/v1/hospitals/alerts/{alert_id}/acknowledge` with:
+     ```json
+     {
+       "trauma_bay_assigned": "Trauma Bay 2",
+       "notes": "Trauma surgery team and rapid blood transfusion unit ready."
+     }
+     ```
+   - Verify `200 OK` receipt confirming `status: "ACKNOWLEDGED"`, `trauma_bay_assigned: "Trauma Bay 2"`, and timestamp.
+
+7. **Step 4: Verify Analytics KPIs:**
+   - Execute `GET /api/v1/analytics/kpis`.
+   - Verify non-zero operational metrics:
+     ```json
+     {
+       "total_emergencies": 1,
+       "active_emergencies": 1,
+       "avg_response_time_minutes": 0.0,
+       "fleet_utilization_rate": 25.0,
+       "total_signal_preemptions": 49
+     }
+     ```
+
+8. **Step 5: Admin User Management:**
+   - Log in as Administrator (`admin@aetis.org` / `Password123!`).
+   - Query `GET /api/v1/admin/users` to view all active platform staff.
+   - Provision a new driver account via `POST /api/v1/admin/users`:
+     ```json
+     {
+       "email": "driver2@aetis.org",
+       "full_name": "Secondary Driver",
+       "role": "DRIVER",
+       "phone": "+1-555-0144",
+       "password": "Password123!"
+     }
+     ```
