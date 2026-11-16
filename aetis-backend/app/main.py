@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth
+from app.routers import auth, emergencies, vehicles
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -36,6 +36,18 @@ app.include_router(
     auth.router,
     prefix="/api/v1/auth",
     tags=["Authentication"],
+)
+
+app.include_router(
+    emergencies.router,
+    prefix="/api/v1/emergencies",
+    tags=["Emergencies"],
+)
+
+app.include_router(
+    vehicles.router,
+    prefix="/api/v1/vehicles",
+    tags=["Vehicles"],
 )
 
 
