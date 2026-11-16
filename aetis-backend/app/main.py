@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth
+from app.routers import auth, emergencies, vehicles
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,10 +27,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Authentication router
+# Authentication Router
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-# Alias for frontend proxy support without version prefix
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"], include_in_schema=False)
+
+# Emergency Incidents Router
+app.include_router(emergencies.router, prefix="/api/v1/emergencies", tags=["Emergencies"])
+app.include_router(emergencies.router, prefix="/api/emergencies", tags=["Emergencies"], include_in_schema=False)
+
+# Fleet Vehicles Router
+app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
+app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"], include_in_schema=False)
 
 
 @app.get("/", tags=["Root"])
@@ -41,11 +48,10 @@ def root():
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
-        "auth_endpoints": {
-            "login": "/api/v1/auth/login",
-            "me": "/api/v1/auth/me",
-            "refresh": "/api/v1/auth/refresh",
-            "logout": "/api/v1/auth/logout",
+        "endpoints": {
+            "auth": "/api/v1/auth",
+            "emergencies": "/api/v1/emergencies",
+            "vehicles": "/api/v1/vehicles",
         },
     }
 
