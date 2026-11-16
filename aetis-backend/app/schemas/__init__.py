@@ -8,7 +8,15 @@ from app.schemas.vehicle import (
     VehicleLocationUpdate,
     VehicleResponse,
 )
-from app.schemas.hospital import HospitalBase, HospitalCreate, HospitalUpdate, HospitalResponse
+from app.schemas.hospital import (
+    HospitalBase,
+    HospitalCreate,
+    HospitalUpdate,
+    HospitalResponse,
+    HospitalAlertResponse,
+    HospitalAcknowledgeRequest,
+    HospitalAcknowledgeResponse,
+)
 from app.schemas.emergency import (
     EmergencyBase,
     EmergencyCreate,
@@ -37,6 +45,9 @@ __all__ = [
     "HospitalCreate",
     "HospitalUpdate",
     "HospitalResponse",
+    "HospitalAlertResponse",
+    "HospitalAcknowledgeRequest",
+    "HospitalAcknowledgeResponse",
     "EmergencyBase",
     "EmergencyCreate",
     "EmergencyStatusUpdate",

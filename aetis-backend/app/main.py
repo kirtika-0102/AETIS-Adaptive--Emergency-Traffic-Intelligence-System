@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth, emergencies, vehicles
+from app.routers import auth, emergencies, vehicles, hospitals, analytics, admin
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,17 +27,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Authentication Router
+# Primary v1 API Routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"], include_in_schema=False)
-
-# Emergency Incidents Router
 app.include_router(emergencies.router, prefix="/api/v1/emergencies", tags=["Emergencies"])
-app.include_router(emergencies.router, prefix="/api/emergencies", tags=["Emergencies"], include_in_schema=False)
-
-# Fleet Vehicles Router
 app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
+app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["Hospitals & Triage Alerts"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics & KPIs"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Administration"])
+
+# Unversioned aliases for Vite dev proxy (/api/*) compatibility
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"], include_in_schema=False)
+app.include_router(emergencies.router, prefix="/api/emergencies", tags=["Emergencies"], include_in_schema=False)
 app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"], include_in_schema=False)
+app.include_router(hospitals.router, prefix="/api/hospitals", tags=["Hospitals & Triage Alerts"], include_in_schema=False)
+app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics & KPIs"], include_in_schema=False)
+app.include_router(admin.router, prefix="/api/admin", tags=["Administration"], include_in_schema=False)
 
 
 @app.get("/", tags=["Root"])
@@ -52,6 +56,9 @@ def root():
             "auth": "/api/v1/auth",
             "emergencies": "/api/v1/emergencies",
             "vehicles": "/api/v1/vehicles",
+            "hospitals": "/api/v1/hospitals",
+            "analytics": "/api/v1/analytics",
+            "admin": "/api/v1/admin",
         },
     }
 

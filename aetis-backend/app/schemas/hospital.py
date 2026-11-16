@@ -33,3 +33,34 @@ class HospitalResponse(HospitalBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HospitalAlertResponse(BaseModel):
+    id: str
+    emergency_id: str
+    emergency_title: str
+    severity: str
+    estimated_arrival_minutes: int
+    patient_notes: Optional[str] = None
+    acknowledged: bool
+    acknowledged_at: Optional[datetime] = None
+    trauma_bay_assigned: Optional[str] = None
+    patient_condition: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HospitalAcknowledgeRequest(BaseModel):
+    trauma_bay_assigned: str
+    notes: Optional[str] = None
+
+
+class HospitalAcknowledgeResponse(BaseModel):
+    alert_id: str
+    status: str = "ACKNOWLEDGED"
+    acknowledged_at: datetime
+    acknowledged_by: str
+    trauma_bay_assigned: str
+    notes: Optional[str] = None
+    message: str = "Triage alert acknowledged and trauma bay assigned."

@@ -1,3 +1,10 @@
-from app.routers import auth, emergencies, vehicles
+from app.routers import auth, emergencies, vehicles, hospitals, analytics, admin
 
-__all__ = ["auth", "emergencies", "vehicles"]
+__all__ = [
+    "auth",
+    "emergencies",
+    "vehicles",
+    "hospitals",
+    "analytics",
+    "admin",
+]

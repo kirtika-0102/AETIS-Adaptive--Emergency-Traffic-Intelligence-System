@@ -1,11 +1,13 @@
-"""Database seeding utility for initial demonstration users, vehicles, and entities."""
+"""Database seeding utility for initial demonstration users, vehicles, hospitals, alerts, and signals."""
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine, Base
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
-from app.models.hospital import Hospital
+from app.models.hospital import Hospital, HospitalAlert
 from app.models.vehicle import Vehicle, VehicleType, VehicleStatus
 from app.models.emergency import Emergency, EmergencySeverity, EmergencyStatus
+from app.models.signal import Signal
 
 
 DEMO_USERS = [
@@ -39,7 +41,7 @@ DEMO_USERS = [
     {
         "id": "usr-hospital-01",
         "email": "hospital@aetis.example",
-        "full_name": "City General Hospital Staff",
+        "full_name": "Apollo ER Triage Team",
         "role": UserRole.HOSPITAL,
         "phone": "+91 9876543213",
         "hospital_id": "HOSP-01",
@@ -86,9 +88,39 @@ DEMO_VEHICLES = [
     },
 ]
 
+DEMO_SIGNALS = [
+    {
+        "id": "SIG-01",
+        "name": "Cyber Hub Main Signal",
+        "intersection": "Cyber City & NH-48",
+        "latitude": 28.4900,
+        "longitude": 77.0900,
+        "status": "NORMAL",
+        "preemption_count": 14,
+    },
+    {
+        "id": "SIG-02",
+        "name": "IFFCO Chowk Crossing",
+        "intersection": "MG Road & NH-48",
+        "latitude": 28.4720,
+        "longitude": 77.0710,
+        "status": "NORMAL",
+        "preemption_count": 8,
+    },
+    {
+        "id": "SIG-03",
+        "name": "Golf Course Junction",
+        "intersection": "Golf Course Rd & Sector 54",
+        "latitude": 28.4410,
+        "longitude": 77.1050,
+        "status": "NORMAL",
+        "preemption_count": 12,
+    },
+]
+
 
 def seed_database(db: Session = None) -> None:
-    """Seed sample hospital, vehicles, and demonstration users into the database if missing."""
+    """Seed sample hospitals, vehicles, signals, and demonstration users into the database if missing."""
     close_after = False
     if db is None:
         db = SessionLocal()
@@ -144,25 +176,56 @@ def seed_database(db: Session = None) -> None:
                 db.add(veh)
         db.commit()
 
-        # 4. Seed sample emergency if none exists
-        if db.query(Emergency).count() == 0:
-            sample_emg = Emergency(
+        # 4. Seed traffic signals
+        for s_data in DEMO_SIGNALS:
+            existing_s = db.query(Signal).filter(Signal.id == s_data["id"]).first()
+            if not existing_s:
+                sig = Signal(
+                    id=s_data["id"],
+                    name=s_data["name"],
+                    intersection=s_data["intersection"],
+                    latitude=s_data["latitude"],
+                    longitude=s_data["longitude"],
+                    status=s_data["status"],
+                    preemption_count=s_data["preemption_count"],
+                )
+                db.add(sig)
+        db.commit()
+
+        # 5. Seed sample emergency if none exists
+        emg = db.query(Emergency).filter(Emergency.id == "EMG-001").first()
+        if not emg:
+            emg = Emergency(
                 id="EMG-001",
                 incident_number="INC-2026-001",
                 title="Cardiac Arrest reported at Golf Course Road",
                 severity=EmergencySeverity.CRITICAL,
-                status=EmergencyStatus.PENDING,
+                status=EmergencyStatus.DISPATCHED,
                 pickup_latitude=28.4682,
                 pickup_longitude=77.0913,
                 pickup_address="Building 9B, Cyber City, DLF Phase 2",
                 patient_notes="58 y/o male with sudden chest pain, unresponsive.",
                 destination_hospital_id="HOSP-01",
                 dispatcher_id="usr-dispatcher-01",
+                assigned_vehicle_id="AMB-01",
             )
-            db.add(sample_emg)
+            db.add(emg)
             db.commit()
 
-        print("Database seeded successfully with demo users, vehicles, and emergencies!")
+        # 6. Seed sample hospital alert
+        alert = db.query(HospitalAlert).filter(HospitalAlert.emergency_id == "EMG-001").first()
+        if not alert:
+            h_alert = HospitalAlert(
+                emergency_id="EMG-001",
+                hospital_id="HOSP-01",
+                estimated_arrival=datetime.now(timezone.utc) + timedelta(minutes=8),
+                patient_condition="Critical - 58 y/o male cardiac arrest, CPR ongoing",
+                acknowledged=False,
+            )
+            db.add(h_alert)
+            db.commit()
+
+        print("Database seeded successfully with demo users, vehicles, signals, and alerts!")
     finally:
         if close_after:
             db.close()
