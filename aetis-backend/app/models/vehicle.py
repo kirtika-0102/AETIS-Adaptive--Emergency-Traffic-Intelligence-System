@@ -3,7 +3,7 @@ AETIS Central Engine — Vehicle Model
 """
 
 from sqlalchemy import Float, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -29,10 +29,13 @@ class Vehicle(Base):
         default="AVAILABLE",
         comment="Enum: AVAILABLE | DISPATCHED | BUSY | MAINTENANCE",
     )
-    current_latitude: Mapped[float] = mapped_column(Float, nullable=True)
-    current_longitude: Mapped[float] = mapped_column(Float, nullable=True)
+    current_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     current_driver_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("users.id"),
         nullable=True,
     )
+
+    # ORM Relationships
+    current_driver = relationship("User", foreign_keys=[current_driver_id], lazy="joined")

@@ -5,7 +5,7 @@ AETIS Central Engine — Emergency Model
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Float, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -35,7 +35,7 @@ class Emergency(Base):
     )
     pickup_latitude: Mapped[float] = mapped_column(Float, nullable=False)
     pickup_longitude: Mapped[float] = mapped_column(Float, nullable=False)
-    pickup_address: Mapped[str] = mapped_column(Text, nullable=True)
+    pickup_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     patient_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     assigned_vehicle_id: Mapped[str | None] = mapped_column(
@@ -63,3 +63,8 @@ class Emergency(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # ORM Relationships
+    assigned_vehicle = relationship("Vehicle", foreign_keys=[assigned_vehicle_id], lazy="joined")
+    destination_hospital = relationship("Hospital", foreign_keys=[destination_hospital_id], lazy="joined")
+    dispatcher = relationship("User", foreign_keys=[dispatcher_id], lazy="joined")

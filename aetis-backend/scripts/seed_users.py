@@ -1,12 +1,7 @@
 """
 AETIS Central Engine — Database Seed Script
-Creates default demo accounts for each of the 4 supported roles:
-- ADMIN:      admin@aetis.org
-- DISPATCHER: dispatcher@aetis.org
-- DRIVER:     driver@aetis.org
-- HOSPITAL:   hospital@aetis.org
-
-Default password for all demo accounts: Password123!
+Creates default demo accounts for each of the 4 supported roles,
+demo hospital, and demo fleet vehicles.
 """
 
 import sys
@@ -19,6 +14,7 @@ from app.core.database import SessionLocal
 from app.core.security import get_password_hash
 from app.models.hospital import Hospital
 from app.models.user import User
+from app.models.vehicle import Vehicle
 
 DEMO_USERS = [
     {
@@ -72,6 +68,49 @@ DEMO_HOSPITALS = [
     }
 ]
 
+DEMO_VEHICLES = [
+    {
+        "id": "AMB-01",
+        "call_sign": "Medic One",
+        "type": "AMBULANCE",
+        "license_plate": "MED-101",
+        "status": "AVAILABLE",
+        "current_latitude": 37.7750,
+        "current_longitude": -122.4180,
+        "current_driver_id": "usr-driv-01",
+    },
+    {
+        "id": "AMB-02",
+        "call_sign": "Medic Two",
+        "type": "AMBULANCE",
+        "license_plate": "MED-102",
+        "status": "AVAILABLE",
+        "current_latitude": 37.7800,
+        "current_longitude": -122.4100,
+        "current_driver_id": None,
+    },
+    {
+        "id": "FIRE-01",
+        "call_sign": "Engine One",
+        "type": "FIRE_TRUCK",
+        "license_plate": "FIRE-201",
+        "status": "AVAILABLE",
+        "current_latitude": 37.7650,
+        "current_longitude": -122.4200,
+        "current_driver_id": None,
+    },
+    {
+        "id": "POL-01",
+        "call_sign": "Cruiser One",
+        "type": "POLICE",
+        "license_plate": "COP-301",
+        "status": "AVAILABLE",
+        "current_latitude": 37.7900,
+        "current_longitude": -122.4050,
+        "current_driver_id": None,
+    },
+]
+
 
 def seed_database():
     db = SessionLocal()
@@ -103,8 +142,19 @@ def seed_database():
                 print(f"Created user: {u_data['email']} [Role: {u_data['role']}]")
             else:
                 print(f"User already exists: {u_data['email']}")
-
         db.commit()
+
+        # Seed fleet vehicles
+        for v_data in DEMO_VEHICLES:
+            existing_v = db.query(Vehicle).filter(Vehicle.id == v_data["id"]).first()
+            if not existing_v:
+                vehicle = Vehicle(**v_data)
+                db.add(vehicle)
+                print(f"Created vehicle: {v_data['id']} ({v_data['call_sign']})")
+            else:
+                print(f"Vehicle already exists: {v_data['id']}")
+        db.commit()
+
         print("\nDatabase seeding completed successfully.")
     except Exception as e:
         db.rollback()
