@@ -87,6 +87,42 @@ SEED_USERS = [
         "password": "password123",
         "hospital_id": "HOSP-01",
     },
+    {
+        "id": "usr-admin-02",
+        "email": "admin@aetis.org",
+        "full_name": "System Administrator",
+        "role": "ADMIN",
+        "phone": "+1-555-0100",
+        "password": "Password123!",
+        "hospital_id": None,
+    },
+    {
+        "id": "usr-disp-02",
+        "email": "dispatcher@aetis.org",
+        "full_name": "Central Dispatcher",
+        "role": "DISPATCHER",
+        "phone": "+1-555-0101",
+        "password": "Password123!",
+        "hospital_id": None,
+    },
+    {
+        "id": "usr-driv-02",
+        "email": "driver@aetis.org",
+        "full_name": "Ambulance Driver One",
+        "role": "DRIVER",
+        "phone": "+1-555-0102",
+        "password": "Password123!",
+        "hospital_id": None,
+    },
+    {
+        "id": "usr-hosp-02",
+        "email": "hospital@aetis.org",
+        "full_name": "City General Hospital Staff",
+        "role": "HOSPITAL",
+        "phone": "+1-555-0103",
+        "password": "Password123!",
+        "hospital_id": "HOSP-01",
+    },
 ]
 
 SEED_VEHICLES = [

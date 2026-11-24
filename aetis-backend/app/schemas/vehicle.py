@@ -9,9 +9,9 @@ from pydantic import BaseModel, model_validator
 
 
 class VehicleBase(BaseModel):
-    call_sign: str
-    type: str  # Enum: AMBULANCE | FIRE_TRUCK | POLICE
-    license_plate: str
+    call_sign: Optional[str] = None
+    type: str = "AMBULANCE"  # Enum: AMBULANCE | FIRE_TRUCK | POLICE
+    license_plate: Optional[str] = None
     status: str = "AVAILABLE"  # Enum: AVAILABLE | DISPATCHED | BUSY | MAINTENANCE
     current_latitude: Optional[float] = None
     current_longitude: Optional[float] = None

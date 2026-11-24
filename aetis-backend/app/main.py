@@ -164,42 +164,44 @@ app.add_middleware(
 
 # ---------------------------------------------------------------------------
 # Core Management & Admin Routers (Person A)
+# Mounted under both /api/v1 and /api for seamless frontend client compatibility
 # ---------------------------------------------------------------------------
-app.include_router(
-    auth.router,
-    prefix="/api/v1/auth",
-    tags=["Authentication"],
-)
+for pfx in ("/api/v1", "/api"):
+    app.include_router(
+        auth.router,
+        prefix=f"{pfx}/auth",
+        tags=["Authentication"],
+    )
 
-app.include_router(
-    emergencies.router,
-    prefix="/api/v1/emergencies",
-    tags=["Emergencies"],
-)
+    app.include_router(
+        emergencies.router,
+        prefix=f"{pfx}/emergencies",
+        tags=["Emergencies"],
+    )
 
-app.include_router(
-    vehicles.router,
-    prefix="/api/v1/vehicles",
-    tags=["Vehicles"],
-)
+    app.include_router(
+        vehicles.router,
+        prefix=f"{pfx}/vehicles",
+        tags=["Vehicles"],
+    )
 
-app.include_router(
-    hospitals.router,
-    prefix="/api/v1/hospitals",
-    tags=["Hospitals"],
-)
+    app.include_router(
+        hospitals.router,
+        prefix=f"{pfx}/hospitals",
+        tags=["Hospitals"],
+    )
 
-app.include_router(
-    analytics.router,
-    prefix="/api/v1/analytics",
-    tags=["Analytics"],
-)
+    app.include_router(
+        analytics.router,
+        prefix=f"{pfx}/analytics",
+        tags=["Analytics"],
+    )
 
-app.include_router(
-    admin.router,
-    prefix="/api/v1/admin",
-    tags=["Admin"],
-)
+    app.include_router(
+        admin.router,
+        prefix=f"{pfx}/admin",
+        tags=["Admin"],
+    )
 
 # ---------------------------------------------------------------------------
 # Real-Time Telemetry & Hardware Control Routers (Person B)

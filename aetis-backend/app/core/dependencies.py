@@ -3,9 +3,9 @@ AETIS Central Engine — Security & Authentication Dependencies
 FastAPI dependencies for JWT extraction, database sessions, and RBAC authorization.
 """
 
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -15,15 +15,17 @@ from app.core.database import get_db
 from app.models.user import User
 
 # OAuth2 scheme configured for OpenAPI docs and token extraction
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     """Decode JWT token, verify signature, and retrieve authenticated User from DB.
 
+    Extracts token from Authorization header (Bearer) or session cookies (access_token).
     Raises HTTP 401 if token is expired, invalid, or user does not exist.
     Raises HTTP 403 if the user account is marked inactive.
     """
@@ -33,9 +35,20 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    raw_token = token or request.cookies.get("access_token") or request.cookies.get("token")
+    if not raw_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:].strip()
+        elif auth_header:
+            raw_token = auth_header.strip()
+
+    if not raw_token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(
-            token,
+            raw_token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
