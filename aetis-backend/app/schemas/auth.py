@@ -17,6 +17,12 @@ class LoginRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_identifier(self) -> "LoginRequest":
+        if self.username == "string":
+            self.username = None
+        if self.email == "string":
+            self.email = None
+        if self.role == "string":
+            self.role = None
         if not self.email and not self.username:
             raise ValueError("Either 'email' or 'username' must be provided.")
         if not self.email and self.username:

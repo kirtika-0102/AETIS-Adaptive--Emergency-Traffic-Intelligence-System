@@ -23,9 +23,14 @@ declare module "axios" {
 
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-/** Falls back to "/api", which the Vite dev proxy can forward to the backend */
+/** Falls back to "/api/v1", which the Vite dev proxy can forward to the backend */
+const normalizedBase =
+  typeof rawBaseUrl === "string" && rawBaseUrl.trim()
+    ? rawBaseUrl.trim()
+    : "/api/v1";
+
 const BASE_URL = (
-  typeof rawBaseUrl === "string" && rawBaseUrl.trim() ? rawBaseUrl.trim() : "/api"
+  normalizedBase === "/api" ? "/api/v1" : normalizedBase
 ).replace(/\/+$/, "");
 
 /**
@@ -167,6 +172,28 @@ export const apiClient = axios.create({
   headers: { Accept: "application/json" },
 });
 
+const TOKEN_STORAGE_KEY = "aetis:auth_token";
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    /* storage might be restricted/unavailable */
+  }
+}
+
 /**
  * Only paths on our own API are allowed. An absolute URL would make axios
  * ignore the base URL and send the session cookie to another site.
@@ -176,6 +203,12 @@ apiClient.interceptors.request.use((config) => {
   if (!url.startsWith("/") || url.startsWith("//")) {
     throw new ApiError({ code: "BAD_REQUEST", message: "Invalid request path." });
   }
+
+  const token = getAuthToken();
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
 
@@ -196,6 +229,7 @@ apiClient.interceptors.response.use(
 
     const skip = axios.isAxiosError(error) && error.config?.skipAuthRedirect === true;
     if (apiError.status === 401 && !skip) {
+      setAuthToken(null);
       try {
         unauthorizedHandler?.();
       } catch {

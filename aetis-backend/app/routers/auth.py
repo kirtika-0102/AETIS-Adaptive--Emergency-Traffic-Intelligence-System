@@ -5,7 +5,7 @@ Endpoints for user login, current user profile, token refresh, and OAuth2 compat
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -33,6 +33,7 @@ router = APIRouter()
 )
 async def login(
     credentials: LoginRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     """Validate user credentials, generate JWT bearer token, and return profile."""
@@ -47,9 +48,20 @@ async def login(
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect email, password or role",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Verify matching role when role is supplied in login payload
+    if credentials.role and credentials.role.strip().lower() not in ("string", ""):
+        expected_role = credentials.role.strip().upper()
+        user_role = (user.role or "").strip().upper()
+        if user_role != expected_role:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email, password or role",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     if not user.is_active:
         raise HTTPException(
@@ -64,6 +76,16 @@ async def login(
         "role": user.role,
     }
     access_token = create_access_token(data=token_payload)
+
+    # Set HttpOnly session cookie for browsers
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
     user_resp = UserResponse.model_validate(user)
     return TokenResponse(
@@ -74,6 +96,18 @@ async def login(
 
 
 @router.post(
+    "/logout",
+    summary="User Logout",
+    description="Log out the current user and clear the session cookie.",
+)
+async def logout(response: Response):
+    """Clear session cookies."""
+    response.delete_cookie(key="access_token", samesite="lax")
+    response.delete_cookie(key="token", samesite="lax")
+    return {"status": "ok", "message": "Successfully logged out"}
+
+
+@router.post(
     "/token",
     response_model=TokenResponse,
     summary="OAuth2 Form Login",
@@ -81,6 +115,7 @@ async def login(
     include_in_schema=False,
 )
 async def login_oauth2_form(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ) -> TokenResponse:
@@ -90,7 +125,7 @@ async def login_oauth2_form(
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect email, password or role",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -107,6 +142,15 @@ async def login_oauth2_form(
         "role": user.role,
     }
     access_token = create_access_token(data=token_payload)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
     user_resp = UserResponse.model_validate(user)
     return TokenResponse(
@@ -133,10 +177,11 @@ async def get_me(
     "/refresh",
     response_model=TokenResponse,
     summary="Refresh Access Token",
-    description="Refreshes an expired or existing JWT access token. Accepts token in Authorization header or body.",
+    description="Refreshes an expired or existing JWT access token. Accepts token in Authorization header, body, or cookie.",
 )
 async def refresh_token(
     request: Request,
+    response: Response,
     body: Optional[RefreshTokenRequest] = None,
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
@@ -152,6 +197,8 @@ async def refresh_token(
         req_auth = request.headers.get("Authorization")
         if req_auth and req_auth.startswith("Bearer "):
             raw_token = req_auth[7:].strip()
+        else:
+            raw_token = request.cookies.get("access_token") or request.cookies.get("token")
 
     if not raw_token:
         raise HTTPException(
@@ -203,6 +250,15 @@ async def refresh_token(
         "role": user.role,
     }
     new_access_token = create_access_token(data=new_token_payload)
+
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
     user_resp = UserResponse.model_validate(user)
     return TokenResponse(
