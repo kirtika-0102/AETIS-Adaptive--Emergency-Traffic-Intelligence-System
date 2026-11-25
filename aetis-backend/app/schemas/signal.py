@@ -49,6 +49,7 @@ class CorridorEvaluationRequest(BaseModel):
     destination_latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0, description="Optional route destination latitude")
     destination_longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0, description="Optional route destination longitude")
     emergency_id: Optional[str] = Field(default=None, description="Optional emergency incident ID to look up route destination")
+    heading: Optional[float] = Field(default=None, ge=0.0, le=360.0, description="Optional compass heading degrees (0-360) for approach filtering")
     queue_count: int = Field(default=5, ge=0, description="Observed/estimated vehicle queue at intersection", json_schema_extra={"example": 4})
     corridor_width_meters: float = Field(default=80.0, ge=10.0, le=500.0, description="Width of corridor in meters", json_schema_extra={"example": 80.0})
     hold_duration_seconds: int = Field(default=45, ge=10, le=300, description="Green wave hold time in seconds", json_schema_extra={"example": 45})

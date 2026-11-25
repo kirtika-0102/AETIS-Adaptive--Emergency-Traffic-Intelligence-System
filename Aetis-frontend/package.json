@@ -12,6 +12,7 @@
     "build:checked": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "fix:classes": "node scripts/fix-tailwind-classes.mjs"

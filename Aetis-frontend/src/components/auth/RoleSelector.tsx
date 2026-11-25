@@ -2,10 +2,8 @@ import { useId } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Building2,
-  Flame,
   Headphones,
   Settings,
-  ShieldCheck,
   Truck,
 } from "lucide-react";
 
@@ -28,8 +26,6 @@ const OPTIONS: RoleOption[] = [
   { role: "dispatcher", icon: Headphones, hint: "Handle calls and dispatch" },
   { role: "driver", icon: Truck, hint: "Receive assignments" },
   { role: "hospital", icon: Building2, hint: "Prepare for arrivals" },
-  { role: "police", icon: ShieldCheck, hint: "Police station" },
-  { role: "fire", icon: Flame, hint: "Fire station" },
   { role: "admin", icon: Settings, hint: "Manage the system" },
 ];
 
@@ -50,7 +46,7 @@ function RoleSelector({ value, onChange, disabled = false }: RoleSelectorProps) 
         I am signing in as
       </legend>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2">
         {OPTIONS.map(({ role, icon: Icon, hint }) => {
           const selected = value === role;
 

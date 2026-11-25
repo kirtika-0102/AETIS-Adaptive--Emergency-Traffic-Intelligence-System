@@ -20,10 +20,10 @@ class AuditLog(Base):
         default=lambda: str(uuid.uuid4()),
     )
     action: Mapped[str] = mapped_column(String(100), nullable=False)
-    performed_by_id: Mapped[str] = mapped_column(
+    performed_by_id: Mapped[str | None] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
-        nullable=False,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(

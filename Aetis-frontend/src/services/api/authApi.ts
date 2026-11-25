@@ -7,7 +7,6 @@ import {
   http,
   idOf,
   isRecord,
-  setAuthToken,
   str,
 } from "./axiosClient";
 
@@ -67,7 +66,7 @@ function toLoginError(err: unknown): unknown {
 }
 
 export const authApi = {
-  /** The server sets the session cookie and/or returns access_token; response is the user. */
+  /** The server sets HttpOnly access/refresh cookies plus csrf_token; response holds user details. */
   async login(credentials: LoginCredentials): Promise<AuthUser> {
     try {
       const data = await http.post<unknown>(
@@ -80,9 +79,6 @@ export const authApi = {
         // A 401 here means bad credentials, not an expired session
         { skipAuthRedirect: true }
       );
-      if (isRecord(data) && typeof data.access_token === "string") {
-        setAuthToken(data.access_token);
-      }
       return toAuthUser(data);
     } catch (err) {
       throw toLoginError(err);
@@ -90,10 +86,8 @@ export const authApi = {
   },
 
   /**
-   * Ends the session on the server and clears local token storage. A 401 means
-   * it is already gone, which is the goal, so that is not an error. Any other
-   * failure is thrown: the caller should still clear local state, but the
-   * session cookie may still be valid on the server.
+   * Ends the session on the server. A 401 means it is already gone, which is
+   * not an error.
    */
   async logout(): Promise<void> {
     try {
@@ -101,8 +95,6 @@ export const authApi = {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return;
       throw err;
-    } finally {
-      setAuthToken(null);
     }
   },
 
@@ -114,7 +106,6 @@ export const authApi = {
       return toAuthUser(data);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setAuthToken(null);
         return null;
       }
       throw err;

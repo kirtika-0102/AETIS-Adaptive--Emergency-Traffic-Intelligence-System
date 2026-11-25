@@ -1,14 +1,16 @@
-import enum
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+"""
+AETIS Central Engine — Traffic Camera Model
+Supports signal linkage, dispatcher corridor issue-flag arming, and duplicate suppression.
+"""
 
-from app.database import Base
+from datetime import datetime
+from typing import Optional
 
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-class CameraStatus(str, enum.Enum):
-    ONLINE = "ONLINE"
-    OFFLINE = "OFFLINE"
-    ERROR = "ERROR"
+from app.core.database import Base
+from app.models.enums import CameraStatus
 
 
 class Camera(Base):
@@ -16,17 +18,35 @@ class Camera(Base):
 
     __tablename__ = "cameras"
 
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    stream_url = Column(String, nullable=False)
-    connected_signal_id = Column(String, ForeignKey("traffic_signals.id", ondelete="CASCADE"), nullable=False, index=True)
-    view_heading = Column(Integer, nullable=False)  # compass degrees 0-360
-    status = Column(String, default=CameraStatus.ONLINE.value, nullable=False)
+    id: Mapped[str] = mapped_column(String(50), primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    stream_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    connected_signal_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("traffic_signals.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    view_heading: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default=CameraStatus.ONLINE.value, nullable=False
+    )
+    is_armed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    armed_emergency_id: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        ForeignKey("emergencies.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    last_triggered_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    # Relationships
     signal = relationship("TrafficSignal", back_populates="cameras")
 
     def __repr__(self) -> str:
-        return f"<Camera id={self.id} name={self.name} signal={self.connected_signal_id} status={self.status}>"
+        return (
+            f"<Camera id={self.id} signal={self.connected_signal_id} "
+            f"status={self.status} armed={self.is_armed}>"
+        )

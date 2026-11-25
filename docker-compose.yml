@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./aetis-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - aetis_data:/app/data
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: sqlite:////app/data/aetis.db
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      COOKIE_SECURE: "false"
+      SECRET_KEY: ${SECRET_KEY:-dev-compose-secret-change-in-prod}
+      CAMERA_API_KEY: ${CAMERA_API_KEY:-dev-compose-camera-key-change-in-prod}
+      AETIS_BOOTSTRAP_ADMIN_EMAIL: ${AETIS_BOOTSTRAP_ADMIN_EMAIL:-}
+      AETIS_BOOTSTRAP_ADMIN_PASSWORD: ${AETIS_BOOTSTRAP_ADMIN_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./Aetis-frontend
+      args:
+        VITE_USE_MOCK_DATA: "false"
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  aetis_data:

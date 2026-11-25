@@ -328,6 +328,81 @@ export function createSocketEventRouter(
         dispatch(notificationReceived(normalizeNotification(data)));
         return;
 
+      case "tracking:location_update": {
+        const emergencyId = d && validId(d.emergency_id ?? d.emergencyId);
+        const lat = d ? finiteNumber(d.latitude) : undefined;
+        const lng = d ? finiteNumber(d.longitude) : undefined;
+        const location =
+          d && (parseLatLng(d.location) ?? (lat !== undefined && lng !== undefined ? { lat, lng } : null));
+        if (!d || !emergencyId || !location) return;
+
+        if (!hasOwn(store.getState().tracking.entities, emergencyId)) {
+          fetchEV(emergencyId);
+          return;
+        }
+        dispatch(
+          evMoved({
+            emergencyId,
+            location,
+            speedKmh: finiteNumber(d.speed ?? d.speedKmh),
+            etaSeconds: finiteNumber(d.eta_seconds ?? d.etaSeconds),
+            lastUpdateAt: new Date().toISOString(),
+          })
+        );
+        return;
+      }
+
+      case "tracking:eta_update": {
+        const emergencyId = d && validId(d.emergency_id ?? d.emergencyId);
+        if (!d || !emergencyId) return;
+        const ev = store.getState().tracking.entities[emergencyId];
+        if (!ev) {
+          fetchEV(emergencyId);
+          return;
+        }
+        dispatch(
+          evMoved({
+            emergencyId,
+            location: ev.location,
+            etaSeconds: finiteNumber(d.eta_seconds ?? d.etaSeconds),
+            lastUpdateAt: new Date().toISOString(),
+          })
+        );
+        return;
+      }
+
+      case "signal:phase_changed":
+      case "signal:preemption_triggered":
+      case "signal:reset": {
+        const id = d && validId(d.id ?? d.signal_id);
+        if (!d || !id) return;
+        const nextStatus: SignalStatus =
+          type === "signal:preemption_triggered" || d.is_preempted === true
+            ? "priority"
+            : type === "signal:reset" || str(d.status).toLowerCase() === "normal"
+              ? "normal"
+              : ((str(d.status).toLowerCase() || "normal") as SignalStatus);
+
+        if (hasOwn(store.getState().signals.entities, id)) {
+          dispatch(
+            signalStatusChanged({
+              id,
+              status: nextStatus,
+              at: Date.now(),
+              expectedArrivalAt: toEpochMs(d.preemption_end_time ?? d.expectedArrivalAt),
+            })
+          );
+        } else {
+          refreshSignals();
+        }
+        return;
+      }
+
+      case "camera:detection_alert": {
+        refreshSignals();
+        return;
+      }
+
       default:
         // Unknown types are ignored, so the server can add events safely
         return;

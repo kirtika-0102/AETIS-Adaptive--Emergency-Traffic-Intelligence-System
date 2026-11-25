@@ -7,6 +7,7 @@ import Input from "../../components/common/Input";
 import Modal from "../../components/common/Modal";
 import Table, { type TableColumn } from "../../components/common/Table";
 import { adminApi } from "../../services/api/adminApi";
+import { USE_MOCK_API } from "../../services/api/axiosClient";
 import type {
   AdminSignalRow,
   CreateSignalPayload,
@@ -39,6 +40,7 @@ const EMPTY_FORM = {
   controllerId: "",
   latitude: "",
   longitude: "",
+  normalCycleSeconds: "60",
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -191,9 +193,11 @@ function ManageSignalsPage() {
     if (Object.keys(errors).length > 0) return;
 
     const payload: CreateSignalPayload = {
+      id: form.controllerId.trim().toUpperCase(),
       name: form.name.trim(),
       controllerId: form.controllerId.trim(),
       location: { lat: Number(form.latitude), lng: Number(form.longitude) },
+      normalCycleSeconds: Number(form.normalCycleSeconds) || 60,
     };
 
     setIsRegistering(true);
@@ -237,6 +241,20 @@ function ManageSignalsPage() {
     }
   };
 
+  const handleResetSignal = async (s: AdminSignalRow) => {
+    setIsToggling(true);
+    try {
+      await adminApi.resetSignal(s.id);
+      setNotice(`${s.name} was reset to autonomous cycling.`);
+      setError(null);
+      refresh();
+    } catch {
+      setError("Could not reset this signal.");
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   /* ---------- Table ---------- */
   const columns: TableColumn<AdminSignalRow>[] = [
     {
@@ -275,35 +293,47 @@ function ManageSignalsPage() {
     },
     {
       key: "heartbeat",
-      header: "Last heartbeat",
+      header: USE_MOCK_API ? "Last heartbeat" : "Last preemption",
       render: (s) => (
-        <span className={isOffline(s) ? "text-[var(--color-clay-600)]" : ""}>
-          {s.lastHeartbeatAt ? formatDateTime(s.lastHeartbeatAt) : "Never"}
+        <span className={USE_MOCK_API && isOffline(s) ? "text-[var(--color-clay-600)]" : ""}>
+          {s.lastHeartbeatAt ? formatDateTime(s.lastHeartbeatAt) : USE_MOCK_API ? "Never" : "None yet"}
         </span>
       ),
     },
     {
       key: "actions",
       header: "Actions",
-      render: (s) => (
-        <button
-          type="button"
-          onClick={() => setToggleTarget(s)}
-          disabled={s.status === "priority" || s.status === "pending"}
-          title={
-            s.status === "priority" || s.status === "pending"
-              ? "Not available while priority is active"
-              : undefined
-          }
-          className={`rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
-            s.enabled
-              ? "border-[var(--color-clay-200)] text-[var(--color-clay-600)] hover:bg-[var(--color-clay-50)]"
-              : "border-[var(--border-default)] hover:bg-[var(--bg-surface-muted)]"
-          }`}
-        >
-          {s.enabled ? "Disable" : "Enable"}
-        </button>
-      ),
+      render: (s) =>
+        USE_MOCK_API ? (
+          <button
+            type="button"
+            onClick={() => setToggleTarget(s)}
+            disabled={s.status === "priority" || s.status === "pending"}
+            title={
+              s.status === "priority" || s.status === "pending"
+                ? "Not available while priority is active"
+                : undefined
+            }
+            className={`rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+              s.enabled
+                ? "border-[var(--color-clay-200)] text-[var(--color-clay-600)] hover:bg-[var(--color-clay-50)]"
+                : "border-[var(--border-default)] hover:bg-[var(--bg-surface-muted)]"
+            }`}
+          >
+            {s.enabled ? "Disable" : "Enable"}
+          </button>
+        ) : s.status === "priority" ? (
+          <button
+            type="button"
+            onClick={() => void handleResetSignal(s)}
+            disabled={isToggling}
+            className="rounded-[var(--radius-sm)] border border-[var(--color-clay-200)] px-3 py-1.5 text-xs font-semibold text-[var(--color-clay-600)] transition-colors hover:bg-[var(--color-clay-50)] disabled:opacity-50"
+          >
+            Reset cycle
+          </button>
+        ) : (
+          <span className="text-xs text-[var(--text-muted)]">Autonomous</span>
+        ),
     },
   ];
 
@@ -347,42 +377,54 @@ function ManageSignalsPage() {
       )}
 
       {/* ---------- Priority buffer ---------- */}
-      <section className="card p-5" aria-label="Priority buffer">
-        <h2 className="text-lg">Priority buffer</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Signals open this many seconds before the estimated arrival time, so the
-queue ahead has cleared by the time the vehicle gets there. Applies to all signals.
-        </p>
+      {USE_MOCK_API ? (
+        <section className="card p-5" aria-label="Priority buffer">
+          <h2 className="text-lg">Priority buffer</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Signals open this many seconds before the estimated arrival time, so the
+            queue ahead has cleared by the time the vehicle gets there. Applies to all signals.
+          </p>
 
-        <form
-          onSubmit={handleSaveBuffer}
-          className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
-          noValidate
-        >
-          <div className="sm:w-56">
-            <Input
-              label="Buffer (seconds)"
-              name="buffer"
-              type="number"
-              min={BUFFER_MIN}
-              max={BUFFER_MAX}
-              value={buffer}
-              onChange={(e) => {
-                setBuffer(e.target.value);
-                setBufferError(null);
-              }}
-              error={bufferError ?? undefined}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isSavingBuffer}
-            className="rounded-[var(--radius-md)] bg-[var(--action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--text-inverse)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
+          <form
+            onSubmit={handleSaveBuffer}
+            className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+            noValidate
           >
-            {isSavingBuffer ? "Saving..." : "Save buffer"}
-          </button>
-        </form>
-      </section>
+            <div className="sm:w-56">
+              <Input
+                label="Buffer (seconds)"
+                name="buffer"
+                type="number"
+                min={BUFFER_MIN}
+                max={BUFFER_MAX}
+                value={buffer}
+                onChange={(e) => {
+                  setBuffer(e.target.value);
+                  setBufferError(null);
+                }}
+                error={bufferError ?? undefined}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingBuffer}
+              className="rounded-[var(--radius-md)] bg-[var(--action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--text-inverse)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
+            >
+              {isSavingBuffer ? "Saving..." : "Save buffer"}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <section className="card p-5" aria-label="Preemption timing">
+          <h2 className="text-lg">Preemption timing policy</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Corridor preemption timing is computed per intersection by the backend
+            queue-dissipation engine (15s clearance + 5s lead margin; 45s default hold).
+            Global buffer overrides and persistent controller disable flags are not
+            configurable from this console.
+          </p>
+        </section>
+      )}
 
       <div className="relative max-w-sm">
         <Search
@@ -463,6 +505,15 @@ queue ahead has cleared by the time the vehicle gets there. Applies to all signa
               required
             />
           </div>
+          <Input
+            label="Normal cycle (seconds)"
+            name="normalCycleSeconds"
+            type="number"
+            min={10}
+            max={300}
+            value={form.normalCycleSeconds}
+            onChange={setField("normalCycleSeconds")}
+          />
 
           <div className="flex justify-end gap-3 pt-2">
             <button

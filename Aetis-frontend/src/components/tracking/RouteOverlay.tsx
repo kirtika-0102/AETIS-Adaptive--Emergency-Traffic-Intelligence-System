@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import L from "leaflet";
 import { CircleMarker, Marker, Polyline, Tooltip } from "react-leaflet";
 
@@ -90,7 +90,7 @@ function RouteOverlay({
         const highlighted = s.status === "priority" || s.status === "pending";
 
         return (
-          <span key={s.id} hidden>
+          <Fragment key={s.id}>
             {highlighted && (
               <CircleMarker
                 center={center}
@@ -113,7 +113,7 @@ function RouteOverlay({
                 {`${s.name} · ${SIGNAL_LABEL[s.status] ?? s.status}`}
               </Tooltip>
             </CircleMarker>
-          </span>
+          </Fragment>
         );
       })}
 

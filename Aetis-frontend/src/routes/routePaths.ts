@@ -66,18 +66,12 @@ export const buildHospitalEmergencyPath = (emergencyId: string) =>
 
 /* ---------- Role groups for access control ---------- */
 
-export const DESTINATION_ROLES: readonly UserRole[] = [
-  "hospital",
-  "police",
-  "fire",
-];
+export const DESTINATION_ROLES: readonly UserRole[] = ["hospital"];
 
 export const ALL_ROLES: readonly UserRole[] = [
   "dispatcher",
   "driver",
   "hospital",
-  "police",
-  "fire",
   "admin",
 ];
 
@@ -86,8 +80,6 @@ export const ROLE_HOME: Record<UserRole, string> = {
   dispatcher: ROUTES.DISPATCHER.DASHBOARD,
   driver: ROUTES.DRIVER.HOME,
   hospital: ROUTES.HOSPITAL.DASHBOARD,
-  police: ROUTES.HOSPITAL.DASHBOARD,
-  fire: ROUTES.HOSPITAL.DASHBOARD,
   admin: ROUTES.ADMIN.DASHBOARD,
 };
 

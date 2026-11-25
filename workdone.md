@@ -1457,7 +1457,7 @@ $$\text{should\_trigger\_preemption} = \text{vehicle\_eta\_seconds} \le \text{tr
 3. `aetis-backend/app/routers/detections.py` - Created AI detection ingestion webhook `POST /api/v1/detections/camera-alert` with confidence gating ($\ge 0.80$), directional downstream signal handover, queue dissipation calculation, and WebSocket broadcasting.
 4. `aetis-backend/app/routers/__init__.py` - Exported `detections_router`.
 5. `aetis-backend/app/main.py` - Registered `detections_router`.
-6. `aetis-backend/scripts/simulate_driver_gps.py` & `scripts/simulate_driver_gps.py` - Created standalone real-time driver GPS telemetry simulation script streaming 15 waypoints from Central Square towards City Memorial Trauma Center with WebSocket connection and REST fallback.
+6. `aetis-backend/scripts/simulate_driver_gps.py` - Created standalone real-time driver GPS telemetry simulation script streaming 15 waypoints from Central Square towards City Memorial Trauma Center with WebSocket connection and REST fallback.
 7. `aetis-backend/tests/test_detections.py` - Automated integration test suite validating high-confidence ambulance detection preemption triggers, low-confidence drop logic, non-emergency vehicle filtering, and 404 error cases.
 
 ---
@@ -1496,14 +1496,10 @@ $$\text{should\_trigger\_preemption} = \text{vehicle\_eta\_seconds} \le \text{tr
 
 ### Command to Run Driver Simulator
 
-From the repository root:
-```powershell
-python scripts/simulate_driver_gps.py
-```
-Or from inside `aetis-backend/`:
+From inside `aetis-backend/`:
 ```powershell
 cd aetis-backend
-python scripts/simulate_driver_gps.py
+python scripts/simulate_driver_gps.py --email driver@aetis.gov --password "<password>"
 ```
 
 ---

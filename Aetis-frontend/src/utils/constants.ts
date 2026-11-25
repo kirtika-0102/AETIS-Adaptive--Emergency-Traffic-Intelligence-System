@@ -32,8 +32,6 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   dispatcher: "Dispatcher",
   driver: "Driver",
   hospital: "Hospital",
-  police: "Police",
-  fire: "Fire",
   admin: "Administrator",
 };
 

@@ -40,6 +40,8 @@ function DriverNavigation() {
     [evs, emergencyId]
   );
 
+  const vehicleId = ev?.vehicleId || emergency?.assignedVehicleId;
+
   /* ---------- Load the emergency ---------- */
   useEffect(() => {
     document.title = "Navigation | AETIS";
@@ -71,7 +73,7 @@ function DriverNavigation() {
   }, [position]);
 
   useEffect(() => {
-    if (!tripActive || !emergencyId) return;
+    if (!tripActive || !emergencyId || !vehicleId) return;
 
     const id = window.setInterval(() => {
       const p = latestPosition.current;
@@ -79,6 +81,7 @@ function DriverNavigation() {
 
       trackingApi
         .sendLocation(emergencyId, {
+          vehicleId,
           lat: p.lat,
           lng: p.lng,
           speedKmh: p.speedKmh ?? 0,
@@ -91,7 +94,7 @@ function DriverNavigation() {
     }, SEND_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [tripActive, emergencyId]);
+  }, [tripActive, emergencyId, vehicleId]);
 
   /* ---------- Keep the screen awake during a trip (best effort) ---------- */
   useEffect(() => {

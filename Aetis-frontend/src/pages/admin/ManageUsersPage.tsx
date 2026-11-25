@@ -11,6 +11,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "../../hooks/useDebounce";
 import { ALL_ROLES, DESTINATION_ROLES } from "../../routes/routePaths";
 import { adminApi } from "../../services/api/adminApi";
+import { hospitalApi, type HospitalFacility } from "../../services/api/hospitalApi";
 import type {
   AdminUser,
   CreateUserPayload,
@@ -33,6 +34,7 @@ const EMPTY_FORM = {
   name: "",
   email: "",
   phone: "",
+  password: "",
   role: "dispatcher" as UserRole,
   employeeId: "",
   organization: "",
@@ -49,12 +51,10 @@ function validate(f: FormState): FormErrors {
   const errors: FormErrors = {};
   if (f.name.trim().length < 2) errors.name = "Enter the full name.";
   if (!isValidEmail(f.email.trim())) errors.email = "Enter a valid email.";
-  if (!isValidPhone(f.phone.trim())) errors.phone = "Enter a valid phone number.";
-  if (needsEmployeeId(f.role) && !f.employeeId.trim()) {
-    errors.employeeId = "Employee or badge ID is required for this role.";
-  }
+  if (f.password.length < 8) errors.password = "Password must be at least 8 characters.";
+  if (f.phone.trim() && !isValidPhone(f.phone.trim())) errors.phone = "Enter a valid phone number.";
   if (needsOrganization(f.role) && !f.organization.trim()) {
-    errors.organization = "Enter the hospital or station name.";
+    errors.organization = "Select the hospital facility.";
   }
   return errors;
 }
@@ -89,6 +89,7 @@ function ManageUsersPage() {
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [hospitals, setHospitals] = useState<HospitalFacility[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isCreating, setIsCreating] = useState(false);
@@ -97,6 +98,20 @@ function ManageUsersPage() {
   useEffect(() => {
     document.title = "Manage Users | AETIS";
   }, []);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    let cancelled = false;
+    hospitalApi
+      .getHospitals()
+      .then((list) => {
+        if (!cancelled) setHospitals(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen]);
 
   useEffect(() => {
     setPage(1);
@@ -200,9 +215,11 @@ function ManageUsersPage() {
     const payload: CreateUserPayload = {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim(),
+      phone: form.phone.trim() || undefined,
+      password: form.password,
       role: form.role,
-      employeeId: needsEmployeeId(form.role) ? form.employeeId.trim() : undefined,
+      employeeId: needsEmployeeId(form.role) ? form.employeeId.trim() || undefined : undefined,
+      hospitalId: needsOrganization(form.role) ? form.organization.trim() : undefined,
       organization: needsOrganization(form.role)
         ? form.organization.trim()
         : undefined,
@@ -213,7 +230,7 @@ function ManageUsersPage() {
     try {
       await adminApi.createUser(payload);
       setCreateOpen(false);
-      setNotice(`Invitation sent to ${payload.email}.`);
+      setNotice(`Account created for ${payload.email}.`);
       refresh();
     } catch {
       setCreateError("Could not create this account. Check the details and try again.");
@@ -481,13 +498,22 @@ function ManageUsersPage() {
             required
           />
           <Input
+            label="Initial password"
+            name="password"
+            type="password"
+            value={form.password}
+            onChange={setField("password")}
+            error={formErrors.password}
+            hint="Minimum 8 characters."
+            required
+          />
+          <Input
             label="Phone"
             name="phone"
             type="tel"
             value={form.phone}
             onChange={setField("phone")}
             error={formErrors.phone}
-            required
           />
           <Select
             label="Role"
@@ -498,30 +524,35 @@ function ManageUsersPage() {
 
           {needsEmployeeId(form.role) && (
             <Input
-              label="Employee / badge ID"
+              label="Employee / badge ID (optional)"
               name="employeeId"
               value={form.employeeId}
               onChange={setField("employeeId")}
               error={formErrors.employeeId}
-              hint="Used to verify this person against official records."
-              required
             />
           )}
           {needsOrganization(form.role) && (
-            <Input
-              label="Hospital or station name"
-              name="organization"
-              value={form.organization}
-              onChange={setField("organization")}
-              error={formErrors.organization}
-              required
-            />
+            hospitals.length > 0 ? (
+              <Select
+                label="Hospital facility"
+                value={form.organization}
+                onChange={setField("organization")}
+                error={formErrors.organization}
+                placeholder="Choose a hospital"
+                options={hospitals.map((h) => ({ value: h.id, label: `${h.name} (${h.id})` }))}
+              />
+            ) : (
+              <Input
+                label="Hospital ID"
+                name="organization"
+                value={form.organization}
+                onChange={setField("organization")}
+                error={formErrors.organization}
+                placeholder="HOSP-CITY"
+                required
+              />
+            )
           )}
-
-          <p className="text-xs text-[var(--text-secondary)]">
-            An invitation with a link to set a password is sent to this email.
-            The account stays unverified until you verify it.
-          </p>
 
           <div className="flex justify-end gap-3 pt-2">
             <button
@@ -537,7 +568,7 @@ function ManageUsersPage() {
               disabled={isCreating}
               className="rounded-[var(--radius-md)] bg-[var(--action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--text-inverse)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
             >
-              {isCreating ? "Sending..." : "Create and invite"}
+              {isCreating ? "Creating..." : "Create user"}
             </button>
           </div>
         </form>

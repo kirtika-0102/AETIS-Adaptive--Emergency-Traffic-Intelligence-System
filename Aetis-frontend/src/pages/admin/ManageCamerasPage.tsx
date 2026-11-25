@@ -32,9 +32,12 @@ const STATUS_LABEL: Record<CameraStatus, string> = {
 const STREAM_URL_PATTERN = /^(rtsp|rtsps|http|https):\/\/\S+$/i;
 
 const EMPTY_FORM = {
+  id: "",
   name: "",
   signalId: "",
   direction: "north" as CameraDirection,
+  latitude: "28.6692",
+  longitude: "77.4538",
   streamUrl: "",
 };
 
@@ -47,8 +50,16 @@ const directionOptions = (
 
 function validate(f: FormState): FormErrors {
   const errors: FormErrors = {};
+  const lat = Number(f.latitude);
+  const lng = Number(f.longitude);
   if (f.name.trim().length < 3) errors.name = "Enter a camera name.";
   if (!f.signalId) errors.signalId = "Choose the signal this camera watches.";
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    errors.latitude = "Latitude must be between -90 and 90.";
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    errors.longitude = "Longitude must be between -180 and 180.";
+  }
   if (!STREAM_URL_PATTERN.test(f.streamUrl.trim())) {
     errors.streamUrl = "Enter an rtsp:// or http(s):// stream address.";
   }
@@ -201,9 +212,12 @@ function ManageCamerasPage() {
     if (Object.keys(errors).length > 0) return;
 
     const payload: CreateCameraPayload = {
+      id: form.id.trim() || undefined,
       name: form.name.trim(),
       signalId: form.signalId,
       direction: form.direction,
+      latitude: Number(form.latitude),
+      longitude: Number(form.longitude),
       streamUrl: form.streamUrl.trim(),
     };
 
@@ -394,14 +408,41 @@ function ManageCamerasPage() {
           )}
 
           <Input
+            label="Camera ID (optional)"
+            name="id"
+            value={form.id}
+            onChange={setField("id")}
+            placeholder="CAM-201"
+          />
+          <Input
             label="Camera name"
             name="name"
             value={form.name}
             onChange={setField("name")}
             error={formErrors.name}
-            placeholder="CAM-101"
+            placeholder="CAM-101 Northbound"
             required
           />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Latitude"
+              name="latitude"
+              type="number"
+              value={form.latitude}
+              onChange={setField("latitude")}
+              error={formErrors.latitude}
+              required
+            />
+            <Input
+              label="Longitude"
+              name="longitude"
+              type="number"
+              value={form.longitude}
+              onChange={setField("longitude")}
+              error={formErrors.longitude}
+              required
+            />
+          </div>
           <Select
             label="Signal"
             value={form.signalId}

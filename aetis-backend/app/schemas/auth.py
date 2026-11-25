@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     """Bearer token bundle returned upon successful login or refresh."""
     access_token: str
+    refresh_token: Optional[str] = None
+    csrf_token: Optional[str] = None
     token_type: str = "bearer"
     user: UserResponse
     id: Optional[str] = None
