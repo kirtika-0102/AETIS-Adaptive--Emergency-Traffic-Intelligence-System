@@ -68,6 +68,8 @@ def _is_room_allowed(user: User, room: str) -> bool:
         return room == "signals" or room.startswith("emergency:") or room.startswith("custom:")
     if role == "HOSPITAL":
         return bool(user.hospital_id) and room == f"hospital:{user.hospital_id}"
+    if role in {"POLICE", "FIRE"}:
+        return room in {role.lower(), "signals"} or room.startswith("emergency:")
     return False
 
 
@@ -93,6 +95,10 @@ def resolve_rooms(
     elif role == "HOSPITAL":
         if user.hospital_id:
             rooms.append(f"hospital:{user.hospital_id}")
+    elif role in {"POLICE", "FIRE"}:
+        rooms.extend([role.lower(), "signals"])
+        if emergency_id:
+            rooms.append(f"emergency:{emergency_id}")
 
     # Preserve insertion order while deduplicating
     return list(dict.fromkeys(rooms))

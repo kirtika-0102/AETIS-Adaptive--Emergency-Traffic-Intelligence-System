@@ -86,6 +86,8 @@ def get_active_tracked_vehicles(
         if not current_user.hospital_id:
             return []
         query = query.filter(Emergency.destination_hospital_id == current_user.hospital_id)
+    elif role_upper in {"POLICE", "FIRE"}:
+        query = query.filter(Emergency.type == role_upper.lower())
     elif role_upper == "DRIVER":
         drv_vehicle_ids = [
             v[0]
@@ -132,6 +134,12 @@ def get_tracked_emergency(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot view tracking for an emergency assigned to another hospital",
+            )
+    elif role_upper in {"POLICE", "FIRE"}:
+        if (emg.type or "").lower() != role_upper.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Cannot view tracking for a non-{role_upper.lower()} emergency",
             )
     elif role_upper == "DRIVER":
         if not emg.assigned_vehicle or emg.assigned_vehicle.current_driver_id != current_user.id:
@@ -237,6 +245,21 @@ def get_vehicle_location(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Vehicle is not currently inbound to your hospital facility",
+            )
+    if role_upper in {"POLICE", "FIRE"}:
+        inbound = (
+            db.query(Emergency.id)
+            .filter(
+                Emergency.assigned_vehicle_id == vehicle.id,
+                Emergency.type == role_upper.lower(),
+                Emergency.status.in_(EN_ROUTE_EMERGENCY_STATUSES),
+            )
+            .first()
+        )
+        if not inbound:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Vehicle is not currently assigned to an active {role_upper.lower()} emergency",
             )
 
     return {

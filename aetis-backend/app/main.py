@@ -207,11 +207,17 @@ def reconcile_legacy_sqlite_columns() -> None:
         ("cameras", "last_triggered_at", "ALTER TABLE cameras ADD COLUMN last_triggered_at DATETIME"),
         ("emergencies", "type", "ALTER TABLE emergencies ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'medical'"),
         ("emergencies", "journey_leg", "ALTER TABLE emergencies ADD COLUMN journey_leg VARCHAR(20) NOT NULL DEFAULT 'TO_SCENE'"),
+        ("revoked_tokens", "user_id", "ALTER TABLE revoked_tokens ADD COLUMN user_id VARCHAR(36)"),
+        ("revoked_tokens", "token_type", "ALTER TABLE revoked_tokens ADD COLUMN token_type VARCHAR(20) NOT NULL DEFAULT 'access'"),
+        ("revoked_tokens", "expires_at", "ALTER TABLE revoked_tokens ADD COLUMN expires_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'"),
+        ("revoked_tokens", "revoked_at", "ALTER TABLE revoked_tokens ADD COLUMN revoked_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'"),
     ]
     with engine.begin() as conn:
         for table, col, ddl in alter_stmts:
             if table in table_cols and col not in table_cols[table]:
                 conn.execute(text(ddl))
+        if "revoked_tokens" in table_cols:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_revoked_tokens_user_id ON revoked_tokens (user_id)"))
 
 
 async def _preemption_expiry_loop(interval_seconds: int = 5) -> None:

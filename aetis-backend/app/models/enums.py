@@ -11,6 +11,8 @@ class UserRole(str, enum.Enum):
     DISPATCHER = "DISPATCHER"
     DRIVER = "DRIVER"
     HOSPITAL = "HOSPITAL"
+    POLICE = "POLICE"
+    FIRE = "FIRE"
 
 
 class EmergencySeverity(str, enum.Enum):

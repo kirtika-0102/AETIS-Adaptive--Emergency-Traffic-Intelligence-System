@@ -218,6 +218,12 @@ def get_corridor_signals_for_emergency(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot inspect corridor signals for another hospital's emergency",
             )
+    elif role_upper in {"POLICE", "FIRE"}:
+        if (emergency.type or "").lower() != role_upper.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Cannot inspect corridor signals for a non-{role_upper.lower()} emergency",
+            )
     elif role_upper == "DRIVER":
         if not emergency.assigned_vehicle or emergency.assigned_vehicle.current_driver_id != current_user.id:
             raise HTTPException(

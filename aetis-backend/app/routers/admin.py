@@ -29,7 +29,7 @@ from app.schemas.user import UserCreate, UserResponse
 router = APIRouter()
 
 require_admin = require_role(["ADMIN"])
-VALID_USER_ROLES = {"ADMIN", "DISPATCHER", "DRIVER", "HOSPITAL"}
+VALID_USER_ROLES = {"ADMIN", "DISPATCHER", "DRIVER", "HOSPITAL", "POLICE", "FIRE"}
 
 
 class AdminUserStatusUpdate(BaseModel):
@@ -215,7 +215,7 @@ async def create_user(
     if role_norm not in VALID_USER_ROLES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid user role '{payload.role}'. Must be ADMIN, DISPATCHER, DRIVER, or HOSPITAL.",
+            detail=f"Invalid user role '{payload.role}'. Must be ADMIN, DISPATCHER, DRIVER, HOSPITAL, POLICE, or FIRE.",
         )
 
     existing_user = db.query(User).filter(User.email.ilike(payload.email.strip())).first()

@@ -80,6 +80,8 @@ function getNavSections(role: UserRole): NavSection[] {
       ];
 
     case "hospital":
+    case "police":
+    case "fire":
       return [
         {
           items: [

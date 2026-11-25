@@ -1,8 +1,10 @@
-/** The four canonical account roles enforced by the server. */
+/** The six canonical account roles enforced by the server. */
 export type UserRole =
   | "dispatcher"
   | "driver"
   | "hospital"
+  | "police"
+  | "fire"
   | "admin";
 
 export type UserStatus = "active" | "pending" | "suspended";

@@ -101,6 +101,25 @@ def _filter_logs_for_user(db: Session, current_user: User, limit: int) -> List[A
                 break
         return results
 
+    if role_upper in {"POLICE", "FIRE"}:
+        emgs = (
+            db.query(Emergency.id, Emergency.incident_number)
+            .filter(Emergency.type == role_upper.lower())
+            .all()
+        )
+        tokens = {e[0] for e in emgs} | {e[1] for e in emgs if e[1]}
+        results = []
+        for e in candidates:
+            act = (e.action or "").upper()
+            if not (act.startswith(f"{role_upper}_") or act.startswith("EMERGENCY_")):
+                continue
+            details = e.details or ""
+            if e.performed_by_id == current_user.id or any(tok in details for tok in tokens):
+                results.append(e)
+            if len(results) >= limit:
+                break
+        return results
+
     return []
 
 

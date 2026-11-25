@@ -17,6 +17,8 @@ type TabId = "all" | "pending" | "acknowledged";
 
 const DESTINATION_LABEL = {
   hospital: "Hospital",
+  police: "Police station",
+  fire: "Fire station",
 } as const;
 
 function HospitalDashboard() {

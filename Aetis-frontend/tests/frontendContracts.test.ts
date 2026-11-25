@@ -14,10 +14,19 @@ import { normalizeSignal } from "../src/services/api/signalApi";
 import { normalizeEV } from "../src/services/api/trackingApi";
 import { createSocketEventRouter, SOCKET_EVENTS } from "../src/services/websocket/socketEvents";
 
-test("FE-002: canonical role surface contains exactly 4 backend roles", () => {
-  assert.deepEqual([...ALL_ROLES].sort(), ["admin", "dispatcher", "driver", "hospital"]);
-  assert.deepEqual([...DESTINATION_ROLES], ["hospital"]);
+test("FE-002: canonical role surface contains all 6 backend roles", () => {
+  assert.deepEqual([...ALL_ROLES].sort(), [
+    "admin",
+    "dispatcher",
+    "driver",
+    "fire",
+    "hospital",
+    "police",
+  ]);
+  assert.deepEqual([...DESTINATION_ROLES], ["hospital", "police", "fire"]);
   assert.equal(ROLE_HOME.hospital, "/hospital/dashboard");
+  assert.equal(ROLE_HOME.police, "/hospital/dashboard");
+  assert.equal(ROLE_HOME.fire, "/hospital/dashboard");
 });
 
 test("SEC-004: axios client enforces HttpOnly cookie + CSRF double-submit defaults", () => {

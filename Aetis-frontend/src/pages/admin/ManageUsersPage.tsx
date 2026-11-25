@@ -9,7 +9,7 @@ import Select from "../../components/common/Select";
 import Table, { type TableColumn } from "../../components/common/Table";
 import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "../../hooks/useDebounce";
-import { ALL_ROLES, DESTINATION_ROLES } from "../../routes/routePaths";
+import { ALL_ROLES } from "../../routes/routePaths";
 import { adminApi } from "../../services/api/adminApi";
 import { hospitalApi, type HospitalFacility } from "../../services/api/hospitalApi";
 import type {
@@ -43,7 +43,7 @@ const EMPTY_FORM = {
 type FormState = typeof EMPTY_FORM;
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-const needsOrganization = (role: UserRole) => DESTINATION_ROLES.includes(role);
+const needsOrganization = (role: UserRole) => role === "hospital";
 const needsEmployeeId = (role: UserRole) =>
   role === "dispatcher" || role === "driver";
 

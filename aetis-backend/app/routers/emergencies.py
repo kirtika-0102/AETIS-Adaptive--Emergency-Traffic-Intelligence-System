@@ -256,6 +256,8 @@ async def list_emergencies(
     role_upper = (current_user.role or "").upper()
     if role_upper == "HOSPITAL" and current_user.hospital_id:
         query = query.filter(Emergency.destination_hospital_id == current_user.hospital_id)
+    elif role_upper in {"POLICE", "FIRE"}:
+        query = query.filter(Emergency.type == role_upper.lower())
     elif role_upper == "DRIVER":
         driver_vehicles = [
             v[0]
@@ -331,6 +333,12 @@ async def get_emergency(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot view an emergency assigned to another hospital facility",
+            )
+    elif role_upper in {"POLICE", "FIRE"}:
+        if (emergency.type or "").lower() != role_upper.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Cannot view a non-{role_upper.lower()} emergency",
             )
     elif role_upper == "DRIVER":
         if not emergency.assigned_vehicle_id:
