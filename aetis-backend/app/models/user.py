@@ -24,7 +24,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        comment="Enum: ADMIN | DISPATCHER | DRIVER | HOSPITAL",
+        comment="Enum: ADMIN | DISPATCHER | DRIVER | HOSPITAL | POLICE | FIRE",
     )
     phone: Mapped[str] = mapped_column(String(20), nullable=True)
     hospital_id: Mapped[str | None] = mapped_column(

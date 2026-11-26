@@ -14,6 +14,8 @@ declare module "axios" {
      * expected answer and not an expired session.
      */
     skipAuthRedirect?: boolean;
+    /** Internal retry guard for one-shot access token refresh */
+    _retried?: boolean;
   }
 }
 
@@ -142,10 +144,21 @@ async function toApiError(error: unknown): Promise<ApiError> {
 
   // Server messages are shown only for client errors. A 5xx message can
   // contain internals, so those always use the generic wording.
-  const serverMessage =
-    status < 500 && fields && typeof fields.message === "string"
-      ? fields.message.trim().slice(0, 200)
-      : "";
+  let rawServerMessage = "";
+  if (status < 500 && fields) {
+    if (typeof fields.message === "string") {
+      rawServerMessage = fields.message;
+    } else if (typeof fields.detail === "string") {
+      rawServerMessage = fields.detail;
+    } else if (
+      Array.isArray(fields.detail) &&
+      isRecord(fields.detail[0]) &&
+      typeof fields.detail[0].msg === "string"
+    ) {
+      rawServerMessage = fields.detail[0].msg;
+    }
+  }
+  const serverMessage = rawServerMessage.trim().slice(0, 200);
 
   return new ApiError({
     code,
@@ -162,37 +175,22 @@ async function toApiError(error: unknown): Promise<ApiError> {
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: TIMEOUT_MS,
-  // The session lives in an HttpOnly cookie, so JavaScript never sees the
-  // token. The browser must be told to send it.
+  // The session lives in HttpOnly cookies, so JavaScript never touches JWTs.
   withCredentials: true,
-  // CSRF: matches Spring Security's CookieCsrfTokenRepository defaults
-  xsrfCookieName: "XSRF-TOKEN",
-  xsrfHeaderName: "X-XSRF-TOKEN",
+  xsrfCookieName: "csrf_token",
+  xsrfHeaderName: "X-CSRF-Token",
   withXSRFToken: true,
   headers: { Accept: "application/json" },
 });
 
-const TOKEN_STORAGE_KEY = "aetis:auth_token";
-
-export function getAuthToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
-export function setAuthToken(token: string | null): void {
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    /* storage might be restricted/unavailable */
-  }
-}
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /**
  * Only paths on our own API are allowed. An absolute URL would make axios
@@ -204,15 +202,31 @@ apiClient.interceptors.request.use((config) => {
     throw new ApiError({ code: "BAD_REQUEST", message: "Invalid request path." });
   }
 
-  const token = getAuthToken();
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const method = (config.method ?? "GET").toUpperCase();
+  if (MUTATING_METHODS.has(method) && !config.headers["X-CSRF-Token"]) {
+    const csrf = readCookie("csrf_token");
+    if (csrf) {
+      config.headers["X-CSRF-Token"] = csrf;
+    }
   }
 
   return config;
 });
 
 let unauthorizedHandler: (() => void) | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = apiClient
+    .post("/auth/refresh", undefined, { skipAuthRedirect: true, _retried: true })
+    .then(() => true)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
 
 /**
  * AuthContext registers a function here that signs the user out locally.
@@ -225,11 +239,24 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401 && error.config) {
+      const cfg = error.config;
+      const reqUrl = cfg.url ?? "";
+      const isAuthPath =
+        reqUrl === "/auth/refresh" || reqUrl === "/auth/login" || reqUrl === "/auth/logout";
+
+      if (!USE_MOCK_API && !cfg._retried && !cfg.skipAuthRedirect && !isAuthPath) {
+        const refreshed = await attemptTokenRefresh();
+        if (refreshed) {
+          return apiClient({ ...cfg, _retried: true });
+        }
+      }
+    }
+
     const apiError = await toApiError(error);
 
     const skip = axios.isAxiosError(error) && error.config?.skipAuthRedirect === true;
     if (apiError.status === 401 && !skip) {
-      setAuthToken(null);
       try {
         unauthorizedHandler?.();
       } catch {
@@ -261,6 +288,17 @@ export type RequestOptions = Omit<
 export const http = {
   get: async <T = unknown>(url: string, options?: RequestOptions): Promise<T> =>
     (await apiClient.get<T>(url, options)).data,
+
+  getWithHeaders: async <T = unknown>(
+    url: string,
+    options?: RequestOptions
+  ): Promise<{ data: T; headers: Record<string, string | undefined> }> => {
+    const res = await apiClient.get<T>(url, options);
+    return {
+      data: res.data,
+      headers: (res.headers ?? {}) as Record<string, string | undefined>,
+    };
+  },
 
   post: async <T = unknown>(
     url: string,

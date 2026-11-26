@@ -1,26 +1,36 @@
 import asyncio
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
+from app.core.database import Base, get_db
+from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.emergency import Emergency
+from app.models.hospital import Hospital
 from app.models.signal import SignalPhase, TrafficSignal
+from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.services.preemption_service import calculate_queue_dissipation, trigger_green_wave
-from app.services.routing_service import get_signals_along_corridor, haversine_distance
+from app.services.routing_service import get_signals_along_corridor
 from app.services.websocket_manager import manager
+from app.utils.geo import haversine_distance
 
-# Shared in-memory SQLite database
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
     SQLALCHEMY_TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(test_engine, "connect")
+def _fk_on(conn, _):
+    conn.cursor().execute("PRAGMA foreign_keys=ON")
+
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
@@ -29,10 +39,30 @@ def setup_test_db():
     Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
 
-    # Seed 3 sequential signals along a corridor
-    # SIG-A is at (12.9716, 77.5946)
-    # SIG-B is at (12.9725, 77.6075) (~1.4 km east)
-    # SIG-C is off-corridor at (12.9900, 77.5946) (~2 km north)
+    db.add(
+        User(
+            id="usr-disp-corr",
+            email="disp.corr@aetis.gov",
+            password_hash=get_password_hash("password123"),
+            full_name="Corridor Dispatcher",
+            role="DISPATCHER",
+            is_active=True,
+        )
+    )
+    db.add(
+        Hospital(
+            id="HOSP-EAST",
+            name="Eastside Trauma Hospital",
+            address="100 East Blvd",
+            latitude=12.9730,
+            longitude=77.6150,
+            contact_phone="+91-80-1111-2222",
+            trauma_level=1,
+            available_beds=10,
+        )
+    )
+    db.flush()
+
     sig_a = TrafficSignal(
         id="SIG-A",
         name="Corridor Junction 1",
@@ -62,34 +92,33 @@ def setup_test_db():
     )
     db.add_all([sig_a, sig_b, sig_c])
 
-    # Seed vehicle and emergency
     veh = Vehicle(
         id="EV-TEST-99",
         label="Rapid Ambulance 99",
-        type="ambulance",
+        type="AMBULANCE",
         current_latitude=12.9714,
         current_longitude=77.5920,
         speed=54.0,
         heading=90.0,
-        status="en_route",
+        status="EN_ROUTE",
     )
+    db.add(veh)
+    db.flush()
+
     emg = Emergency(
         id="EMG-TEST-99",
         assigned_vehicle_id="EV-TEST-99",
         hospital_id="HOSP-EAST",
-        status="en_route",
+        status="IN_TRANSIT",
         destination_lat=12.9730,
         destination_lng=77.6150,
     )
-    db.add(veh)
     db.add(emg)
     db.commit()
     db.close()
 
     manager.active_rooms.clear()
-
     yield
-
     Base.metadata.drop_all(bind=test_engine)
     manager.active_rooms.clear()
 
@@ -109,18 +138,26 @@ def client():
     app.dependency_overrides.clear()
 
 
+def _dispatcher_token() -> str:
+    token, _, _ = create_access_token(
+        {
+            "sub": "disp.corr@aetis.gov",
+            "user_id": "usr-disp-corr",
+            "email": "disp.corr@aetis.gov",
+            "role": "DISPATCHER",
+        }
+    )
+    return token
+
+
 def test_haversine_distance():
-    # Distance between MG Road (12.9716, 77.5946) and Brigade Road (12.9725, 77.6075) is ~1400m
     dist = haversine_distance(12.9716, 77.5946, 12.9725, 77.6075)
     assert 1380 < dist < 1430
-
-    # Distance to identical point is 0
     assert haversine_distance(12.9716, 77.5946, 12.9716, 77.5946) == 0.0
 
 
 def test_corridor_filtering_and_ordering():
     db = TestingSessionLocal()
-    # Route corridor from (12.9710, 77.5920) east to (12.9730, 77.6150)
     corridor = get_signals_along_corridor(
         db=db,
         origin_lat=12.9710,
@@ -129,45 +166,34 @@ def test_corridor_filtering_and_ordering():
         dest_lng=77.6150,
         corridor_width_meters=150.0,
     )
-
-    # Should find SIG-A and SIG-B, but NOT SIG-C (off-corridor north)
     signal_ids = [s.id for s in corridor]
     assert "SIG-A" in signal_ids
     assert "SIG-B" in signal_ids
     assert "SIG-C" not in signal_ids
-
-    # Should be sorted in order of proximity to origin
     assert signal_ids[0] == "SIG-A"
     assert signal_ids[1] == "SIG-B"
     db.close()
 
 
 def test_predictive_queue_dissipation_math():
-    # 5 queued cars: clear_time = (5 * 2.0) + 15.0 = 25s; threshold = 25 + 5 = 30s
-    speed_mps = 15.0  # 54 km/h
-
-    # Case 1: Distance = 300m -> ETA = 300 / 15 = 20s <= 30s -> Preemption TRIGGERED
+    speed_mps = 15.0
     timing_trigger = calculate_queue_dissipation(distance_to_signal=300.0, speed_mps=speed_mps, queue_count=5)
     assert timing_trigger["queue_clear_time"] == 25.0
     assert timing_trigger["trigger_threshold_seconds"] == 30.0
     assert timing_trigger["vehicle_eta_seconds"] == 20.0
     assert timing_trigger["should_trigger_preemption"] is True
 
-    # Case 2: Distance = 750m -> ETA = 750 / 15 = 50s > 30s -> Preemption NOT triggered yet
     timing_hold = calculate_queue_dissipation(distance_to_signal=750.0, speed_mps=speed_mps, queue_count=5)
     assert timing_hold["vehicle_eta_seconds"] == 50.0
     assert timing_hold["should_trigger_preemption"] is False
 
 
-def test_trigger_green_wave_state_and_broadcasting():
+def test_trigger_green_wave_state_and_broadcasting(client):
     db = TestingSessionLocal()
-    client = TestClient(app)
+    token = _dispatcher_token()
+    with client.websocket_connect(f"/ws?token={token}") as ws_disp:
+        ws_disp.receive_json()
 
-    # Connect WebSocket listeners to signals and dispatchers rooms
-    with client.websocket_connect("/ws?client_type=dispatcher") as ws_disp:
-        ws_disp.receive_json()  # init greeting
-
-        # Trigger green wave on SIG-A
         updated_signal = asyncio.run(
             trigger_green_wave(
                 db=db,
@@ -181,11 +207,7 @@ def test_trigger_green_wave_state_and_broadcasting():
         assert updated_signal.is_preempted is True
         assert updated_signal.preempted_by_vehicle_id == "EV-TEST-99"
 
-        # Dispatcher must receive preemption event and phase change
-        disp_events = []
-        for _ in range(2):
-            disp_events.append(ws_disp.receive_json())
-
+        disp_events = [ws_disp.receive_json() for _ in range(2)]
         event_types = [e["type"] for e in disp_events]
         assert "signal:phase_changed" in event_types
         assert "signal:preemption_triggered" in event_types
@@ -194,11 +216,11 @@ def test_trigger_green_wave_state_and_broadcasting():
 
 
 def test_evaluate_corridor_endpoint(client):
-    with client.websocket_connect("/ws?client_type=dispatcher") as ws_disp:
+    token = _dispatcher_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    with client.websocket_connect(f"/ws?token={token}") as ws_disp:
         ws_disp.receive_json()
 
-        # Vehicle is at (12.9715, 77.5930), ~170m from SIG-A (12.9716, 77.5946)
-        # At 54 km/h (15 m/s), ETA is ~11.3s <= 30s threshold -> should trigger green wave on SIG-A
         eval_payload = {
             "vehicle_id": "EV-TEST-99",
             "current_latitude": 12.9715,
@@ -209,7 +231,7 @@ def test_evaluate_corridor_endpoint(client):
             "queue_count": 5,
             "hold_duration_seconds": 45,
         }
-        res = client.post("/api/v1/signals/evaluate-corridor", json=eval_payload)
+        res = client.post("/api/v1/signals/evaluate-corridor", json=eval_payload, headers=headers)
         assert res.status_code == 200
         data = res.json()
 
@@ -220,6 +242,5 @@ def test_evaluate_corridor_endpoint(client):
         assert data["next_signal_id"] == "SIG-A"
         assert data["vehicle_eta_seconds"] < data["trigger_threshold_seconds"]
 
-        # Verify dispatcher received real-time WebSocket event
         event = ws_disp.receive_json()
         assert event["type"] in ["signal:phase_changed", "signal:preemption_triggered"]

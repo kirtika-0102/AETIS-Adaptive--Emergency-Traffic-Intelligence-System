@@ -48,8 +48,6 @@ export function seedUsers(now: number): MockUser[] {
 
   const HOSPITAL_1 = "Demo City Hospital";
   const HOSPITAL_2 = "Demo Riverside Hospital";
-  const POLICE_1 = "Demo Police Station, Kavi Nagar";
-  const FIRE_1 = "Demo Fire Station, Vasundhara";
 
   return [
     make("U-A01", "Demo Admin", "admin@aetis.example", "admin", {
@@ -117,12 +115,6 @@ export function seedUsers(now: number): MockUser[] {
     }),
     make("U-H02", "Riverside Duty Desk", "hospital2@aetis.example", "hospital", {
       organization: HOSPITAL_2,
-    }),
-    make("U-P01", "Demo Police Desk", "police@aetis.example", "police", {
-      organization: POLICE_1,
-    }),
-    make("U-F01", "Demo Fire Desk", "fire@aetis.example", "fire", {
-      organization: FIRE_1,
     }),
   ];
 }

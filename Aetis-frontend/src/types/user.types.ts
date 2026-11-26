@@ -1,4 +1,4 @@
-/** The six account roles. The server decides what each one may do. */
+/** The six canonical account roles enforced by the server. */
 export type UserRole =
   | "dispatcher"
   | "driver"
@@ -43,8 +43,10 @@ export interface AdminUser {
 export interface CreateUserPayload {
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   role: UserRole;
+  password?: string;
+  hospitalId?: string;
   employeeId?: string;
   organization?: string;
 }

@@ -37,8 +37,13 @@ class EmergencyResponse(EmergencyBase):
     id: str
     incident_number: str
     status: str
+    journey_leg: Optional[str] = "TO_SCENE"
     assigned_vehicle_id: Optional[str] = None
     destination_hospital_id: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
+    destination_name: Optional[str] = None
+    hospital_name: Optional[str] = None
     dispatcher_id: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None

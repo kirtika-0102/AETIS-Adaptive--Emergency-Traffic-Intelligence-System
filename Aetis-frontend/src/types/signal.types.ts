@@ -29,7 +29,9 @@ export interface AdminSignalRow {
 }
 
 export interface CreateSignalPayload {
+  id?: string;
   name: string;
   controllerId: string;
   location: { lat: number; lng: number };
+  normalCycleSeconds?: number;
 }

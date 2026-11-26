@@ -37,18 +37,19 @@ class HospitalAlert(Base):
         default=lambda: str(uuid.uuid4()),
     )
     emergency_id: Mapped[str] = mapped_column(
-        String(20),
-        ForeignKey("emergencies.id"),
+        String(50),
+        ForeignKey("emergencies.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,
     )
     hospital_id: Mapped[str] = mapped_column(
         String(20),
         ForeignKey("hospitals.id"),
         nullable=False,
     )
-    estimated_arrival: Mapped[datetime] = mapped_column(
+    estimated_arrival: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
+        nullable=True,
     )
     patient_condition: Mapped[str] = mapped_column(
         String(255),

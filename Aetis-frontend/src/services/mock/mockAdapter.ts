@@ -91,11 +91,9 @@ const ROLES: readonly UserRole[] = [
   "dispatcher",
   "driver",
   "hospital",
-  "police",
-  "fire",
   "admin",
 ];
-const DESTINATION_ROLES: readonly UserRole[] = ["hospital", "police", "fire"];
+const DESTINATION_ROLES: readonly UserRole[] = ["hospital"];
 const EMERGENCY_TYPES: readonly EmergencyType[] = ["medical", "police", "fire"];
 const SEVERITIES: readonly SeverityLevel[] = ["critical", "high", "medium", "low"];
 const VEHICLE_TYPES: readonly VehicleType[] = ["ambulance", "fire", "police"];

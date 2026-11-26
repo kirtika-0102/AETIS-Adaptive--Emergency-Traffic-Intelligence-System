@@ -1,15 +1,24 @@
+from datetime import datetime, timezone
+import json
 import math
-from typing import Any, Dict, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+import time
+from typing import Any, Dict, List, Optional
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_camera_or_dispatcher
+from app.models.audit import AuditLog
 from app.models.camera import Camera
+from app.models.enums import CameraStatus
 from app.models.signal import TrafficSignal
+from app.models.user import User
 from app.schemas.telemetry import CameraDetectionPayload
-from app.services.preemption_service import trigger_green_wave
-from app.services.routing_service import haversine_distance
+from app.services.preemption_service import expire_due_preemptions, trigger_green_wave
 from app.services.websocket_manager import manager
+from app.utils.geo import haversine_distance
 
 router = APIRouter(prefix="/api/v1/detections", tags=["Camera AI Ingestion"])
 
@@ -19,8 +28,8 @@ def find_downstream_target(
     camera: Camera,
 ) -> Optional[TrafficSignal]:
     """
-    Identifies the downstream intersection along the road approach.
-    Uses the camera's view heading vector and proximity to query the next downstream signal.
+    Identifies the downstream intersection along the road approach using
+    camera view heading alignment and proximity.
     """
     other_signals = (
         db.query(TrafficSignal)
@@ -37,30 +46,64 @@ def find_downstream_target(
     head_dx = math.sin(cam_heading_rad)
     head_dy = math.cos(cam_heading_rad)
 
+    meters_per_deg_lat = 111320.0
+    meters_per_deg_lon = 111320.0 * math.cos(math.radians(camera.latitude))
+
     for signal in other_signals:
-        dist = haversine_distance(camera.latitude, camera.longitude, signal.latitude, signal.longitude)
-        # Vector towards candidate signal
-        meters_per_deg_lat = 111320.0
-        meters_per_deg_lon = 111320.0 * math.cos(math.radians(camera.latitude))
+        dist = haversine_distance(
+            camera.latitude, camera.longitude, signal.latitude, signal.longitude
+        )
         dy = (signal.latitude - camera.latitude) * meters_per_deg_lat
         dx = (signal.longitude - camera.longitude) * meters_per_deg_lon
         norm = math.sqrt(dx * dx + dy * dy)
         if norm > 0:
-            # Dot product to check forward directional alignment
             dot = (dx * head_dx + dy * head_dy) / norm
-            # Within 75-degree cone (dot > 0.25)
             if dot > 0.25 and dist < min_distance:
                 min_distance = dist
                 best_signal = signal
 
-    # Fallback to closest other signal if none in exact heading cone
-    if not best_signal and other_signals:
-        other_signals.sort(
-            key=lambda s: haversine_distance(camera.latitude, camera.longitude, s.latitude, s.longitude)
-        )
-        best_signal = other_signals[0]
-
     return best_signal
+
+
+@router.get(
+    "/recent",
+    summary="List recent camera AI detections",
+)
+def get_recent_detections(
+    limit: int = Query(30, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """Return recent recorded camera AI detection events derived from persistent AuditLogs."""
+    logs = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "CAMERA_DETECTION_RECORDED")
+        .order_by(AuditLog.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    results: List[Dict[str, Any]] = []
+    for entry in logs:
+        meta: Dict[str, Any] = {}
+        if entry.details:
+            try:
+                meta = json.loads(entry.details)
+            except Exception:
+                meta = {}
+        results.append(
+            {
+                "id": entry.id,
+                "cameraId": meta.get("camera_id", ""),
+                "cameraName": meta.get("camera_name", meta.get("camera_id", "")),
+                "signalId": meta.get("signal_id", ""),
+                "signalName": meta.get("signal_name", meta.get("signal_id", "")),
+                "vehicleType": meta.get("vehicle_type", "ambulance"),
+                "confidence": meta.get("confidence", 0.0),
+                "detectedAt": entry.timestamp.isoformat(),
+                "emergencyId": meta.get("emergency_id"),
+            }
+        )
+    return results
 
 
 @router.post(
@@ -71,19 +114,12 @@ def find_downstream_target(
 async def intake_camera_detection(
     payload: CameraDetectionPayload,
     db: Session = Depends(get_db),
+    actor: Optional[User] = Depends(require_camera_or_dispatcher),
 ) -> Dict[str, Any]:
     """
-    Intake webhook where external computer vision models (YOLO / OpenCV) post detections.
-
-    Logic:
-    If detected_vehicle_type == 'AMBULANCE' and confidence >= 0.80:
-      - Find connected signal ID from camera record.
-      - Query downstream intersection camera along the road segment.
-      - Trigger queue dissipation preemption on target signal using estimated_queue_count.
-      - Broadcast manager.broadcast_to_room('signals', 'camera:detection_alert', payload.dict()).
-      - Return HTTP 200 {"status": "alert_dispatched", "downstream_signaled": True}.
+    Authenticated intake webhook where external edge CV nodes (or dispatchers) post detections.
+    Requires valid X-AETIS-API-Key header or DISPATCHER/ADMIN JWT.
     """
-    # 1. Lookup camera
     camera = db.query(Camera).filter(Camera.id == payload.camera_id).first()
     if not camera:
         raise HTTPException(
@@ -91,9 +127,42 @@ async def intake_camera_detection(
             detail=f"Camera '{payload.camera_id}' not found",
         )
 
-    # 2. Check vehicle type and confidence threshold
+    if (camera.status or "").upper() != CameraStatus.ONLINE.value:
+        return {
+            "status": "alert_ignored",
+            "downstream_signaled": False,
+            "reason": f"Camera '{camera.id}' is not ONLINE (status={camera.status})",
+        }
+
+    if not camera.is_armed:
+        return {
+            "status": "alert_ignored",
+            "downstream_signaled": False,
+            "reason": f"Camera '{camera.id}' is not armed by a dispatcher",
+        }
+
+    now_epoch = time.time()
+    if abs(now_epoch - payload.timestamp) > 120.0:
+        return {
+            "status": "alert_ignored",
+            "downstream_signaled": False,
+            "reason": "Stale or out-of-window camera detection timestamp (>120s)",
+        }
+
+    if camera.last_triggered_at is not None:
+        last_trig = camera.last_triggered_at
+        if last_trig.tzinfo is None:
+            last_trig = last_trig.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - last_trig).total_seconds()
+        if elapsed < 30.0:
+            return {
+                "status": "alert_ignored",
+                "downstream_signaled": False,
+                "reason": "Duplicate detection suppressed within 30s camera cooldown",
+            }
+
     v_type = payload.detected_vehicle_type.upper().strip()
-    is_ambulance = v_type == "AMBULANCE"
+    is_ambulance = v_type in {"AMBULANCE", "EMERGENCY"}
     high_confidence = payload.confidence >= 0.80
 
     if not (is_ambulance and high_confidence):
@@ -105,33 +174,74 @@ async def intake_camera_detection(
             "detected_vehicle_type": payload.detected_vehicle_type,
         }
 
-    # 3. Find connected signal and downstream target
     current_signal_id = camera.connected_signal_id
     downstream_signal = find_downstream_target(db, camera)
-    target_signal = downstream_signal or db.query(TrafficSignal).filter(TrafficSignal.id == current_signal_id).first()
+    target_signal = (
+        downstream_signal
+        or db.query(TrafficSignal).filter(TrafficSignal.id == current_signal_id).first()
+    )
 
     target_signal_id = target_signal.id if target_signal else current_signal_id
-
-    # 4. Trigger queue dissipation preemption on target signal
-    # Queue dissipation formula: (queue_count * 2.0) + 15.0s safety margin + 15s hold
     calculated_hold_seconds = max(35, int((payload.estimated_queue_count * 2.0) + 30.0))
-    vehicle_id = payload.vehicle_id or "AMB-01"
+    vehicle_id = payload.vehicle_id or "EV-AMB-01"
+
+    await expire_due_preemptions(db)
+    if target_signal:
+        db.refresh(target_signal)
+        if (
+            target_signal.is_preempted
+            and target_signal.preempted_by_vehicle_id
+            and target_signal.preempted_by_vehicle_id != vehicle_id
+        ):
+            return {
+                "status": "alert_ignored",
+                "downstream_signaled": False,
+                "reason": (
+                    f"Target signal '{target_signal_id}' is currently held by another "
+                    f"vehicle ({target_signal.preempted_by_vehicle_id})"
+                ),
+            }
 
     await trigger_green_wave(
         db=db,
         signal_id=target_signal_id,
         vehicle_id=vehicle_id,
         hold_duration_seconds=calculated_hold_seconds,
+        performed_by_id=actor.id if actor else None,
+        source="CAMERA_CV",
     )
 
-    # 5. Broadcast to WebSockets
-    telemetry_dict = payload.dict()
+    now = datetime.now(timezone.utc)
+    camera.last_triggered_at = now
+    db.add(
+        AuditLog(
+            id=str(uuid.uuid4()),
+            action="CAMERA_DETECTION_RECORDED",
+            performed_by_id=actor.id if actor else None,
+            details=json.dumps(
+                {
+                    "camera_id": camera.id,
+                    "camera_name": camera.name,
+                    "signal_id": target_signal_id,
+                    "signal_name": target_signal.name if target_signal else target_signal_id,
+                    "vehicle_type": "ambulance",
+                    "confidence": payload.confidence,
+                    "emergency_id": camera.armed_emergency_id,
+                }
+            ),
+            timestamp=now,
+        )
+    )
+    db.commit()
+
+    telemetry_dict = payload.model_dump()
     await manager.broadcast_to_room("signals", "camera:detection_alert", telemetry_dict)
     await manager.broadcast_to_room("dispatchers", "camera:detection_alert", telemetry_dict)
 
-    # Downstream camera info if available
     downstream_cam = (
-        db.query(Camera).filter(Camera.connected_signal_id == target_signal_id).first()
+        db.query(Camera)
+        .filter(Camera.connected_signal_id == target_signal_id)
+        .first()
         if downstream_signal
         else None
     )

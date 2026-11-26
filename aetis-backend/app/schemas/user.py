@@ -11,7 +11,7 @@ from pydantic import BaseModel, model_validator
 class UserBase(BaseModel):
     email: str
     full_name: str
-    role: str  # Enum: ADMIN | DISPATCHER | DRIVER | HOSPITAL
+    role: str  # Enum: ADMIN | DISPATCHER | DRIVER | HOSPITAL | POLICE | FIRE
     phone: Optional[str] = None
     hospital_id: Optional[str] = None
 

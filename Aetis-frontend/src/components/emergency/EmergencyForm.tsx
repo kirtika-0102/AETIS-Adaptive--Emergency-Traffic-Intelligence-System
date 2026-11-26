@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { ArrowRight } from "lucide-react";
 
+import { hospitalApi, type HospitalFacility } from "../../services/api/hospitalApi";
 import type { SeverityLevel } from "../../styles/theme";
 import type {
   CreateEmergencyPayload,
@@ -68,6 +69,7 @@ interface FormState {
   latitude: string;
   longitude: string;
   description: string;
+  destinationHospitalId: string;
   patientName: string;
   patientAge: string;
   patientGender: string;
@@ -82,6 +84,7 @@ type TextKey =
   | "latitude"
   | "longitude"
   | "description"
+  | "destinationHospitalId"
   | "patientName"
   | "patientAge"
   | "patientGender"
@@ -98,6 +101,7 @@ const INITIAL_FORM: FormState = {
   latitude: "",
   longitude: "",
   description: "",
+  destinationHospitalId: "",
   patientName: "",
   patientAge: "",
   patientGender: "",
@@ -256,6 +260,20 @@ function EmergencyForm({ onSubmit, isSubmitting }: EmergencyFormProps) {
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [hospitals, setHospitals] = useState<HospitalFacility[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    hospitalApi
+      .getHospitals()
+      .then((list) => {
+        if (!cancelled) setHospitals(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const errorCount = Object.values(errors).filter(Boolean).length;
   const isMedical = form.type === "medical";
@@ -326,6 +344,7 @@ function EmergencyForm({ onSubmit, isSubmitting }: EmergencyFormProps) {
       callerPhone: form.callerPhone.trim(),
       location,
       description: form.description.trim() || undefined,
+      destinationHospitalId: form.destinationHospitalId || undefined,
     };
 
     if (form.type === "medical") {
@@ -490,6 +509,20 @@ function EmergencyForm({ onSubmit, isSubmitting }: EmergencyFormProps) {
                 patient arrives.
               </p>
             </div>
+
+            {hospitals.length > 0 && (
+              <Select
+                id={fid("destinationHospitalId")}
+                label="Receiving hospital (optional)"
+                value={form.destinationHospitalId}
+                onChange={setText("destinationHospitalId")}
+                placeholder="Select destination hospital"
+                options={hospitals.map((h) => ({
+                  value: h.id,
+                  label: `${h.name} (${h.availableBeds} beds)`,
+                }))}
+              />
+            )}
 
             <Input
               id={fid("condition")}

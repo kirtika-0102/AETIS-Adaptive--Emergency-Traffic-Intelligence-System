@@ -21,9 +21,12 @@ export interface AdminCameraRow {
 }
 
 export interface CreateCameraPayload {
+  id?: string;
   name: string;
   signalId: string;
   direction: CameraDirection;
+  latitude?: number;
+  longitude?: number;
   /** rtsp://, rtsps://, http:// or https://. Write-only. */
   streamUrl: string;
 }

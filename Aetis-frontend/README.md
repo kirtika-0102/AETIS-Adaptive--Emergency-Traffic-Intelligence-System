@@ -1,75 +1,32 @@
-# React + TypeScript + Vite
+# AETIS Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 18 + TypeScript + Vite interface for the AETIS emergency vehicle priority and hospital pre-alert system.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
+cp .env.example .env.local      # Windows: copy .env.example .env.local
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Open `http://localhost:5173`. Set `VITE_USE_MOCK_DATA=false` to connect directly to the FastAPI backend (`aetis-backend/`) through the Vite proxy (`/api` and `/ws`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Supported Roles
+- `dispatcher`: `dispatcher@aetis.example` (mock) or seeded backend dispatcher
+- `driver`: `driver@aetis.example` (mock) or seeded backend driver
+- `hospital`: `hospital@aetis.example` (mock) or seeded backend hospital staff
+- `admin`: `admin@aetis.example` (mock) or seeded backend admin
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Scripts
 
+```bash
+npm run typecheck    # TypeScript check (tsc --noEmit)
+npm run lint         # ESLint check
+npm test             # Run frontend unit/contract tests
+npm run build        # Production Vite bundle
 ```
+
+## Authentication & Security
+- Browser sessions use `HttpOnly` `access_token` / `refresh_token` cookies plus double-submit `X-CSRF-Token` validation; JWTs are never stored in `localStorage`.
+- WebSocket connections use `wss://` in HTTPS deployments and automatically resync Redux slices on reconnect.

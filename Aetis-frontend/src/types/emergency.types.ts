@@ -36,6 +36,10 @@ export interface Emergency {
   createdAt: string;
   /** Seconds from dispatch to arrival. Set once the vehicle has arrived. */
   responseSeconds?: number;
+  /** Optional assigned vehicle and destination hospital IDs from backend */
+  assignedVehicleId?: string;
+  destinationHospitalId?: string;
+  journeyLeg?: string;
 }
 
 export interface CreateEmergencyPatient {
@@ -54,6 +58,7 @@ export interface CreateEmergencyPayload {
   /** Coordinates are optional here. When absent, the backend finds the address. */
   location: { address: string; lat?: number; lng?: number };
   description?: string;
+  destinationHospitalId?: string;
   /** Medical emergencies only */
   patient?: CreateEmergencyPatient;
 }

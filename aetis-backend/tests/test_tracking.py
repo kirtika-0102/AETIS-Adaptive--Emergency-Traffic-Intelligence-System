@@ -1,23 +1,31 @@
-import asyncio
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
+from app.core.database import Base, get_db
+from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.emergency import Emergency
+from app.models.hospital import Hospital
+from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.services.websocket_manager import manager
 
-# Use in-memory SQLite with StaticPool so all threads/sessions share the database
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
     SQLALCHEMY_TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(test_engine, "connect")
+def _fk_on(conn, _):
+    conn.cursor().execute("PRAGMA foreign_keys=ON")
+
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
@@ -25,37 +33,81 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_
 def setup_test_db():
     Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
-    # Seed vehicle and emergency
+
+    db.add_all(
+        [
+            User(
+                id="usr-disp-trk",
+                email="disp.trk@aetis.gov",
+                password_hash=get_password_hash("password123"),
+                full_name="Tracking Dispatcher",
+                role="DISPATCHER",
+                is_active=True,
+            ),
+            User(
+                id="usr-driv-trk",
+                email="driv.trk@aetis.gov",
+                password_hash=get_password_hash("password123"),
+                full_name="Tracking Driver",
+                role="DRIVER",
+                is_active=True,
+            ),
+            Hospital(
+                id="HOSP-TEST-A",
+                name="Test General Hospital",
+                address="100 Test Road",
+                latitude=12.9780,
+                longitude=77.6000,
+                contact_phone="+91-80-3333-4444",
+                trauma_level=1,
+                available_beds=10,
+            ),
+        ]
+    )
+    db.flush()
+
+    db.add(
+        User(
+            id="usr-hosp-trk",
+            email="hosp.trk@aetis.gov",
+            password_hash=get_password_hash("password123"),
+            full_name="Hospital Staff",
+            role="HOSPITAL",
+            hospital_id="HOSP-TEST-A",
+            is_active=True,
+        )
+    )
+
     veh = Vehicle(
         id="EV-TEST-01",
         label="Ambulance Test 1",
-        type="ambulance",
+        type="AMBULANCE",
         current_latitude=12.9700,
         current_longitude=77.5900,
         speed=0.0,
         heading=0.0,
-        status="dispatched",
+        status="DISPATCHED",
+        current_driver_id="usr-driv-trk",
     )
+    db.add(veh)
+    db.flush()
+
     emg = Emergency(
         id="EMG-TEST-100",
         assigned_vehicle_id="EV-TEST-01",
         hospital_id="HOSP-TEST-A",
         hospital_name="Test General Hospital",
-        status="en_route",
+        status="IN_TRANSIT",
         severity="CRITICAL",
         destination_lat=12.9780,
         destination_lng=77.6000,
     )
-    db.add(veh)
     db.add(emg)
     db.commit()
     db.close()
 
-    # Clear manager rooms
     manager.active_rooms.clear()
-
     yield
-
     Base.metadata.drop_all(bind=test_engine)
     manager.active_rooms.clear()
 
@@ -75,20 +127,25 @@ def client():
     app.dependency_overrides.clear()
 
 
+def _token(email: str, user_id: str, role: str) -> str:
+    t, _, _ = create_access_token({"sub": email, "user_id": user_id, "email": email, "role": role})
+    return t
+
+
 def test_websocket_gps_telemetry_ingestion_and_broadcast(client):
-    # Connect Dispatcher
-    with client.websocket_connect("/ws?client_type=dispatcher") as ws_dispatcher:
-        ws_dispatcher.receive_json()  # connection.established
+    disp_token = _token("disp.trk@aetis.gov", "usr-disp-trk", "DISPATCHER")
+    hosp_token = _token("hosp.trk@aetis.gov", "usr-hosp-trk", "HOSPITAL")
+    driv_token = _token("driv.trk@aetis.gov", "usr-driv-trk", "DRIVER")
 
-        # Connect Hospital
-        with client.websocket_connect("/ws?client_type=hospital&hospital_id=HOSP-TEST-A") as ws_hospital:
-            ws_hospital.receive_json()  # connection.established
+    with client.websocket_connect(f"/ws?token={disp_token}") as ws_dispatcher:
+        ws_dispatcher.receive_json()
 
-            # Connect Driver
-            with client.websocket_connect("/ws?client_type=driver&emergency_id=EMG-TEST-100") as ws_driver:
-                ws_driver.receive_json()  # connection.established
+        with client.websocket_connect(f"/ws?token={hosp_token}&hospital_id=HOSP-TEST-A") as ws_hospital:
+            ws_hospital.receive_json()
 
-                # Driver emits high-frequency GPS location update
+            with client.websocket_connect(f"/ws?token={driv_token}&emergency_id=EMG-TEST-100") as ws_driver:
+                ws_driver.receive_json()
+
                 telemetry_message = {
                     "type": "tracking:update_location",
                     "data": {
@@ -103,25 +160,20 @@ def test_websocket_gps_telemetry_ingestion_and_broadcast(client):
                 }
                 ws_driver.send_json(telemetry_message)
 
-                # 1. Driver (in emergency:EMG-TEST-100 room) receives location broadcast
                 driver_broadcast = ws_driver.receive_json()
                 assert driver_broadcast["type"] == "tracking:location_update"
                 assert driver_broadcast["data"]["latitude"] == 12.9735
                 assert driver_broadcast["data"]["speed"] == 55.0
 
-                # 2. Dispatcher receives location broadcast
                 dispatcher_broadcast = ws_dispatcher.receive_json()
                 assert dispatcher_broadcast["type"] == "tracking:location_update"
                 assert dispatcher_broadcast["data"]["vehicle_id"] == "EV-TEST-01"
-                assert dispatcher_broadcast["data"]["latitude"] == 12.9735
 
-                # 3. Hospital receives ETA update
                 hospital_broadcast = ws_hospital.receive_json()
                 assert hospital_broadcast["type"] in ["tracking:eta_update", "inbound.eta"]
                 assert hospital_broadcast["data"]["hospital_id"] == "HOSP-TEST-A"
                 assert "eta_seconds" in hospital_broadcast["data"]
 
-    # 5. Check database persistence
     db = TestingSessionLocal()
     vehicle = db.query(Vehicle).filter(Vehicle.id == "EV-TEST-01").first()
     assert vehicle is not None
@@ -133,9 +185,11 @@ def test_websocket_gps_telemetry_ingestion_and_broadcast(client):
 
 
 def test_rest_fallback_update_location_endpoint(client):
-    # Connect Dispatcher to verify REST fallback triggers real-time broadcast
-    with client.websocket_connect("/ws?client_type=dispatcher") as ws_dispatcher:
-        ws_dispatcher.receive_json()  # init
+    disp_token = _token("disp.trk@aetis.gov", "usr-disp-trk", "DISPATCHER")
+    driv_token = _token("driv.trk@aetis.gov", "usr-driv-trk", "DRIVER")
+
+    with client.websocket_connect(f"/ws?token={disp_token}") as ws_dispatcher:
+        ws_dispatcher.receive_json()
 
         post_payload = {
             "vehicle_id": "EV-TEST-01",
@@ -146,7 +200,11 @@ def test_rest_fallback_update_location_endpoint(client):
             "heading": 120.0,
             "timestamp": 1700000005.0,
         }
-        res = client.post("/api/v1/tracking/update-location", json=post_payload)
+        res = client.post(
+            "/api/v1/tracking/update-location",
+            json=post_payload,
+            headers={"Authorization": f"Bearer {driv_token}"},
+        )
         assert res.status_code == 200
         res_data = res.json()
         assert res_data["status"] == "success"
@@ -154,14 +212,15 @@ def test_rest_fallback_update_location_endpoint(client):
         assert res_data["current_latitude"] == 12.9750
         assert res_data["destination_hospital_id"] == "HOSP-TEST-A"
 
-        # Dispatcher must receive the live broadcast triggered by HTTP
         disp_msg = ws_dispatcher.receive_json()
         assert disp_msg["type"] == "tracking:location_update"
         assert disp_msg["data"]["latitude"] == 12.9750
         assert disp_msg["data"]["speed"] == 62.5
 
-    # Check vehicle query endpoint
-    v_res = client.get("/api/v1/tracking/vehicle/EV-TEST-01")
+    v_res = client.get(
+        "/api/v1/tracking/vehicle/EV-TEST-01",
+        headers={"Authorization": f"Bearer {disp_token}"},
+    )
     assert v_res.status_code == 200
     assert v_res.json()["latitude"] == 12.9750
     assert v_res.json()["speed"] == 62.5

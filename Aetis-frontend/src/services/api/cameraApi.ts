@@ -1,5 +1,6 @@
 import type { CameraDetection } from "../../types/camera.types";
 import {
+  USE_MOCK_API,
   badResponse,
   clampInt,
   expectArray,
@@ -9,6 +10,13 @@ import {
   idOf,
   str,
 } from "./axiosClient";
+
+function normalizeDetectionVehicleType(raw: string): CameraDetection["vehicleType"] {
+  const v = raw.trim().toLowerCase();
+  if (v === "fire" || v === "fire_truck") return "fire";
+  if (v === "police") return "police";
+  return "ambulance";
+}
 
 function normalizeDetection(raw: unknown): CameraDetection {
   const r = expectRecord(raw, "detection");
@@ -25,7 +33,7 @@ function normalizeDetection(raw: unknown): CameraDetection {
     cameraName: str(r.cameraName).trim() || cameraId,
     signalId,
     signalName: str(r.signalName).trim() || signalId,
-    vehicleType: str(r.vehicleType) as CameraDetection["vehicleType"],
+    vehicleType: normalizeDetectionVehicleType(str(r.vehicleType)),
     // 0 to 1. The feed clamps and displays it as a percentage.
     confidence: finiteNumber(r.confidence) ?? Number.NaN,
     detectedAt,
@@ -37,7 +45,8 @@ function normalizeDetection(raw: unknown): CameraDetection {
 export const cameraApi = {
   /** Newest first */
   async getRecentDetections(limit = 30): Promise<CameraDetection[]> {
-    const data = await http.get<unknown>("/cameras/detections", {
+    const path = USE_MOCK_API ? "/cameras/detections" : "/detections/recent";
+    const data = await http.get<unknown>(path, {
       params: { limit: clampInt(limit, 1, 200, 30) },
     });
     return expectArray(data, "detection list").map(normalizeDetection);

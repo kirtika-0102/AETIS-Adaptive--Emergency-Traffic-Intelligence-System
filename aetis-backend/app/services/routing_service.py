@@ -1,26 +1,9 @@
 import math
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.signal import TrafficSignal
-
-
-def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Computes great-circle distance between two GPS coordinates in meters.
-    """
-    R = 6371000.0  # Earth radius in meters
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(delta_phi / 2.0) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
-    )
-    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-    return R * c
+from app.utils.geo import haversine_distance
 
 
 def get_signals_along_corridor(
@@ -30,22 +13,41 @@ def get_signals_along_corridor(
     dest_lat: float,
     dest_lng: float,
     corridor_width_meters: float = 80.0,
+    heading: Optional[float] = None,
 ) -> List[TrafficSignal]:
     """
-    Queries all traffic signals that fall along the bounding vector between origin
-    and destination within corridor_width_meters, sorted in order of proximity
+    Queries traffic signals that fall along the straight-line corridor vector between
+    origin and destination within corridor_width_meters, sorted in order of proximity
     to the approaching vehicle (origin).
+    Note: Straight-line geometric filtering only (not road-network graph shortest-path).
     """
-    all_signals = db.query(TrafficSignal).all()
-    if not all_signals:
+    # SQL bounding-box pre-filter (~corridor buffer + ~500m margin) to avoid unnecessary Python math
+    lat_pad = max(0.005, (corridor_width_meters + 250.0) / 111320.0)
+    cos_lat = max(0.1, abs(math.cos(math.radians((origin_lat + dest_lat) / 2.0))))
+    lng_pad = max(0.005, (corridor_width_meters + 250.0) / (111320.0 * cos_lat))
+
+    min_lat = min(origin_lat, dest_lat) - lat_pad
+    max_lat = max(origin_lat, dest_lat) + lat_pad
+    min_lng = min(origin_lng, dest_lng) - lng_pad
+    max_lng = max(origin_lng, dest_lng) + lng_pad
+
+    candidate_signals = (
+        db.query(TrafficSignal)
+        .filter(
+            TrafficSignal.latitude >= min_lat,
+            TrafficSignal.latitude <= max_lat,
+            TrafficSignal.longitude >= min_lng,
+            TrafficSignal.longitude <= max_lng,
+        )
+        .all()
+    )
+    if not candidate_signals:
         return []
 
-    # Local equirectangular projection centered between origin and destination
     phi_mean = math.radians((origin_lat + dest_lat) / 2.0)
     meters_per_deg_lat = 111320.0
     meters_per_deg_lon = 111320.0 * math.cos(phi_mean)
 
-    # Vector AB from origin to destination in meters
     delta_x = (dest_lng - origin_lng) * meters_per_deg_lon
     delta_y = (dest_lat - origin_lat) * meters_per_deg_lat
     segment_len_sq = delta_x * delta_x + delta_y * delta_y
@@ -53,34 +55,38 @@ def get_signals_along_corridor(
 
     signals_in_corridor: List[TrafficSignal] = []
 
-    # If origin and destination are practically identical, check simple radial distance
     if segment_len < 1.0:
-        for signal in all_signals:
+        for signal in candidate_signals:
             dist = haversine_distance(origin_lat, origin_lng, signal.latitude, signal.longitude)
             if dist <= corridor_width_meters:
                 signals_in_corridor.append(signal)
-        signals_in_corridor.sort(key=lambda s: haversine_distance(origin_lat, origin_lng, s.latitude, s.longitude))
+        signals_in_corridor.sort(
+            key=lambda s: haversine_distance(origin_lat, origin_lng, s.latitude, s.longitude)
+        )
         return signals_in_corridor
 
-    for signal in all_signals:
-        # Vector AP from origin to signal in meters
+    head_dx = math.sin(math.radians(heading)) if heading is not None else None
+    head_dy = math.cos(math.radians(heading)) if heading is not None else None
+
+    for signal in candidate_signals:
         dx = (signal.longitude - origin_lng) * meters_per_deg_lon
         dy = (signal.latitude - origin_lat) * meters_per_deg_lat
 
-        # Normalized projection parameter t along segment AB
         t = (dx * delta_x + dy * delta_y) / segment_len_sq
-
-        # Cross-track (perpendicular) distance in meters
         cross_track_dist = abs(dx * delta_y - dy * delta_x) / segment_len
 
-        # Check if signal lies along corridor segment:
-        # allow slight buffer before origin (-0.05) and past destination (1.05)
-        if -0.05 <= t <= 1.05 and cross_track_dist <= corridor_width_meters:
+        if head_dx is not None and head_dy is not None:
+            sig_norm = math.sqrt(dx * dx + dy * dy)
+            if sig_norm > 1.0:
+                heading_dot = (dx * head_dx + dy * head_dy) / sig_norm
+                if heading_dot < 0.0:
+                    continue
+
+        # Only match signals ahead of the approaching vehicle (0.0 <= t <= 1.05)
+        if 0.0 <= t <= 1.05 and cross_track_dist <= corridor_width_meters:
             signals_in_corridor.append(signal)
 
-    # Sort in order of proximity to approaching vehicle (origin)
     signals_in_corridor.sort(
         key=lambda s: haversine_distance(origin_lat, origin_lng, s.latitude, s.longitude)
     )
-
     return signals_in_corridor

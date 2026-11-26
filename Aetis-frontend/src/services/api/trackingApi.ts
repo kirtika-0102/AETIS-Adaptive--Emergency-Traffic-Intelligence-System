@@ -1,6 +1,7 @@
 import type { TrackedEV } from "../../types/tracking.types";
 import {
   ApiError,
+  USE_MOCK_API,
   badResponse,
   expectArray,
   expectRecord,
@@ -21,29 +22,35 @@ export interface LocationFix {
   heading: number | null;
   /** Epoch ms on the driver's device. The server stamps its own receive time. */
   timestamp: number;
+  /** Vehicle identifier required by backend /tracking/update-location */
+  vehicleId?: string;
 }
 
 export function normalizeEV(raw: unknown): TrackedEV {
   const r = expectRecord(raw, "tracked vehicle");
-  const emergencyId = idOf(r.emergencyId);
-  const location = parseLatLng(r.location);
+  const emergencyId = idOf(r.emergencyId) || idOf(r.emergency_id);
+  const lat = finiteNumber(r.latitude);
+  const lng = finiteNumber(r.longitude);
+  const location =
+    parseLatLng(r.location) ??
+    (lat !== undefined && lng !== undefined ? { lat, lng } : null);
   if (!emergencyId || !location) badResponse("tracked vehicle");
 
-  const vehicleId = idOf(r.vehicleId);
+  const vehicleId = idOf(r.vehicleId) || idOf(r.vehicle_id);
 
   return {
     ...(r as unknown as TrackedEV),
     emergencyId,
     vehicleId,
     vehicleLabel: str(r.vehicleLabel).trim() || vehicleId || emergencyId,
-    vehicleType: str(r.vehicleType) as TrackedEV["vehicleType"],
+    vehicleType: (str(r.vehicleType).trim().toLowerCase() || "ambulance") as TrackedEV["vehicleType"],
     location,
     // NaN shows as "-" in the interface, instead of a misleading 0
-    speedKmh: finiteNumber(r.speedKmh) ?? Number.NaN,
-    etaSeconds: finiteNumber(r.etaSeconds) ?? Number.NaN,
-    destinationName: str(r.destinationName),
+    speedKmh: finiteNumber(r.speedKmh) ?? finiteNumber(r.speed) ?? Number.NaN,
+    etaSeconds: finiteNumber(r.etaSeconds) ?? finiteNumber(r.eta_seconds) ?? Number.NaN,
+    destinationName: str(r.destinationName) || str(r.destination_name),
     route: parseLatLngList(r.route),
-    lastUpdateAt: str(r.lastUpdateAt) || undefined,
+    lastUpdateAt: str(r.lastUpdateAt) || str(r.last_update_at) || undefined,
   };
 }
 
@@ -56,13 +63,35 @@ export const trackingApi = {
     }
 
     const speed = finiteNumber(fix.speedKmh);
+    const speedKmh = speed !== undefined ? Math.max(0, speed) : 0;
+    const rawTs = finiteNumber(fix.timestamp) ?? Date.now();
 
-    await http.post(`/tracking/${pathSegment(emergencyId)}/location`, {
-      lat: point.lat,
-      lng: point.lng,
-      speedKmh: speed !== undefined ? Math.max(0, speed) : 0,
-      heading: finiteNumber(fix.heading) ?? null,
-      timestamp: finiteNumber(fix.timestamp) ?? Date.now(),
+    if (USE_MOCK_API) {
+      await http.post(`/tracking/${pathSegment(emergencyId)}/location`, {
+        lat: point.lat,
+        lng: point.lng,
+        speedKmh,
+        heading: finiteNumber(fix.heading) ?? null,
+        timestamp: rawTs,
+      });
+      return;
+    }
+
+    if (!fix.vehicleId) {
+      throw new ApiError({
+        code: "VALIDATION",
+        message: "Assigned vehicle ID is required to report GPS telemetry.",
+      });
+    }
+
+    await http.post("/tracking/update-location", {
+      vehicle_id: fix.vehicleId,
+      emergency_id: emergencyId,
+      latitude: point.lat,
+      longitude: point.lng,
+      speed: speedKmh,
+      heading: finiteNumber(fix.heading) ?? 0,
+      timestamp: rawTs > 1e12 ? rawTs / 1000 : rawTs,
     });
   },
 
@@ -74,9 +103,10 @@ export const trackingApi = {
 
   /** One vehicle, or null if its trip is not live (for unknown ids seen on the socket) */
   async getEV(emergencyId: string): Promise<TrackedEV | null> {
-    const data = await nullIfNotFound(
-      http.get<unknown>(`/tracking/${pathSegment(emergencyId)}`)
-    );
+    const path = USE_MOCK_API
+      ? `/tracking/${pathSegment(emergencyId)}`
+      : `/tracking/emergency/${pathSegment(emergencyId)}`;
+    const data = await nullIfNotFound(http.get<unknown>(path));
     if (data == null || data === "") return null;
     return normalizeEV(data);
   },

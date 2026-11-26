@@ -29,6 +29,12 @@ class Emergency(Base):
         String(50), unique=True, nullable=False, index=True
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False, default="Emergency Dispatch")
+    type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="medical",
+        comment="Enum: medical | fire | police",
+    )
     severity: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -39,7 +45,13 @@ class Emergency(Base):
         String(20),
         nullable=False,
         default="PENDING",
-        comment="Enum: PENDING | DISPATCHED | IN_TRANSIT | ARRIVED | COMPLETED | CANCELLED | active",
+        comment="Enum: PENDING | DISPATCHED | IN_TRANSIT | ARRIVED | COMPLETED | CANCELLED",
+    )
+    journey_leg: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="TO_SCENE",
+        comment="Enum: TO_SCENE | TO_HOSPITAL | COMPLETED",
     )
     pickup_latitude: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     pickup_longitude: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
